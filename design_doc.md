@@ -1,85 +1,32 @@
-# Design Doc: Gemini-Powered AI Poker Players
+# Design Doc: AI Chat and Game Flow Fixes
 
-## Objective
-Replace the hardcoded, simple AI in the 5-card draw poker game with intelligent agents powered by Google's **Gemini 2.5 Flash** model.
+## Problem
+1. AI bots do not respond to chat messages.
+2. The game reportedly gets stuck in the "Waiting" phase.
 
-## Architecture
+## Proposed Changes
 
-### 1. New Component: `src/five_card_poker/ai.py`
-This module will handle all interactions with the Gemini API.
+### 1. AI Chat Implementation
+- **GeminiPokerAgent**: Add a `decide_chat_response` method. This method will take the latest chat message and game context (state) to generate a short, persona-driven response.
+- **ChatManager**: Add a method to get recent chat history for context.
+- **Main App**: In the `send_chat_message` endpoint, trigger a response from one or more AI players. To avoid blocking the request, this could be handled by a background task, but for simplicity in this project, we can trigger it sequentially after the message is added, or have the client poll for new messages.
 
-*   **Class `GeminiPokerAgent`**:
-    *   **Responsibilities**:
-        *   Construct prompts based on current game state (hand, pot, betting history).
-        *   Call `google.generativeai` API.
-        *   Parse the JSON response to determine actions (Bet/Fold/Call/Raise, Draw cards).
-    *   **Methods**:
-        *   `decide_betting_action(self, game_context: dict) -> dict`: Returns `{"action": "raise", "amount": 20}`.
-        *   `decide_draw_action(self, game_context: dict) -> list[int]`: Returns indices of cards to hold.
+### 2. Game Flow Fixes (Waiting Phase)
+- **Investigate `waiting` phase**: The phase `waiting` is intended for when a hand is over and the game is waiting for a new "Deal" (ante).
+- **Potential Issue**: If a hand ends (everyone folds or showdown), it transitions to `waiting`. If the UI doesn't show the result clearly or if the "Deal" button is disabled/hidden, the user might feel "stuck".
+- **Improvement**: 
+    - Ensure `_showdown` and `_end_hand` provide clear feedback via chat/log.
+    - Check for any state where `phase` is `waiting` but `dealBtn` might not be visible.
+    - Add a "Showdown" state that persists until the user acknowledges it (optional, but might help). 
+    - For now, I will ensure that if the human is out of chips, they get a notification, and I'll add a "Reset Game" button to the UI.
 
-### 2. Integration: `src/five_card_poker/logic.py`
-*   **`Player` Class**:
-    *   Add an optional `agent` attribute (type `GeminiPokerAgent`).
-*   **`Table` Class**:
-    *   Add `process_ai_turn()`: A helper method to execute the AI's logic.
-    *   Refactor `handle_action` and `handle_draw` to be more robust.
-
-### 3. Application Logic: `src/five_card_poker/main.py`
-*   Initialize `Table` with `GeminiPokerAgent` instances for AI players.
-*   Update endpoints (`/action`, `/draw`, `/bet`) to call `table.process_ai_turns()` instead of the current hardcoded `while` loops.
-*   **Environment**: Load `GEMINI_API_KEY` from environment variables.
-
-## Prompt Engineering
-The prompt will describe the poker hand and game state in natural language.
-*   *Input*: "You are a poker pro. Hand: [Ah, Kh, Qh, Jh, 10h]. Pot: 100. Call cost: 10. Phase: Betting 1. Opponents: Player 1 (Human) checked. What is your move? Respond in JSON: {action, amount}."
-*   *Output*: JSON strict mode.
-
-## Dependencies
-*   `google-generativeai`
-
-## Testing Plan
-*   Mock `google.generativeai.GenerativeModel.generate_content` to return canned responses for testing logic without spending tokens/latency.
-
----
-
-# Design Update: Opponent Feedback & Player Chat
-
-## Objective
-Enhance player experience by providing clear feedback on opponent actions and enabling player-to-player communication.
-
-## Architecture
-
-### 1. Chat System (`src/five_card_poker/chat.py`)
-*   **Class `ChatManager`**:
-    *   **Responsibilities**:
-        *   Store chat messages in memory.
-        *   Provide methods to add and retrieve messages.
-    *   **Attributes**:
-        *   `messages: List[ChatMessage]`
-*   **Model `ChatMessage`**:
-    *   `id: str` (uuid)
-    *   `player_id: str` (e.g., "player1", "system")
-    *   `text: str`
-    *   `timestamp: float`
-
-### 2. Game Logic Integration (`src/five_card_poker/logic.py`)
-*   **`Table` Class**:
-    *   Accept an optional `chat_manager` instance.
-    *   Log game events (e.g., "Player 1 bets 10", "Bot 2 folds") to the chat manager as system messages.
-    *   Update `handle_action`, `handle_draw`, `_showdown`, `_end_hand` to log events.
-
-### 3. API Endpoints (`src/five_card_poker/main.py`)
-*   **`POST /chat/send`**:
-    *   Input: `{"player_id": str, "text": str}`
-    *   Action: Add message to `ChatManager`.
-*   **`GET /chat/messages`**:
-    *   Output: List of messages.
-
-### 4. Frontend (`index.html`, `script.js`)
-*   **UI**:
-    *   Add a chat box container (messages area, input field, send button).
-    *   Style messages differently based on sender (e.g., system messages in italics, user messages aligned right).
-*   **Logic**:
-    *   Poll `/chat/messages` every few seconds (e.g., 2s).
-    *   Send message on button click or Enter key.
-    *   Auto-scroll to bottom on new messages.
+## Implementation Plan
+1. **Sentinel**: Write tests for AI chat and game state transitions.
+2. **DevOps**: Bump version in `pyproject.toml`.
+3. **Grunt**: 
+    - Update `GeminiPokerAgent` in `ai.py` with `decide_chat_response`.
+    - Update `Table` and `main.py` to trigger bot chat.
+    - Add "Reset Game" button to `index.html` and `script.js`.
+    - Fix any logic errors in `logic.py` preventing phase advancement.
+4. **Gatekeeper**: Audit and merge.
+5. **UAT**: Verify fixes.

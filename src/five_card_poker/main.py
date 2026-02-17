@@ -106,10 +106,33 @@ async def reset_game():
     table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
     return {"message": "Game reset"}
 
+
 @app.post("/chat/send")
 async def send_chat_message(request: ChatRequest):
     msg = chat_manager.add_message(request.player_id, request.text)
+
+    # Trigger bot responses
+    if request.player_id == "player1":
+        # Get history for context
+        history = [m.text for m in chat_manager.get_messages(limit=10)]
+
+        # Pick a bot to respond (or all)
+        for player in table.players:
+            if player.type == PlayerType.AI and player.agent:
+                # 50% chance for a bot to respond to keep it from being too noisy
+                import random
+
+                if random.random() < 0.5:
+                    player_state = player.to_state(hide_hand=False)
+                    table_state = table.to_state(player.id)
+                    response_text = player.agent.decide_chat_response(
+                        request.text, history, player_state, table_state
+                    )
+                    chat_manager.add_message(player.id, response_text)
+                    break  # Only one bot responds per user message
+
     return msg
+
 
 @app.get("/chat/messages")
 async def get_chat_messages(limit: int = 50):

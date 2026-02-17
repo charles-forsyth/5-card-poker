@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const callBtn = document.getElementById('call-btn');
     const raiseBtn = document.getElementById('raise-btn');
     const shuffleBtn = document.getElementById('shuffle-btn');
+    const resetBtn = document.getElementById('reset-btn');
     const themeToggle = document.getElementById('theme-toggle');
     
     const body = document.body;
@@ -153,56 +154,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Actions
     dealBtn.addEventListener('click', async () => {
-        const bet = parseInt(betAmountInput.value);
-        const response = await fetch('/bet', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bet })
-        });
-        updateUI(await response.json());
+        try {
+            const bet = parseInt(betAmountInput.value);
+            const response = await fetch('/bet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bet })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                alert(error.detail || 'Failed to deal');
+                return;
+            }
+            updateUI(await response.json());
+        } catch (error) {
+            console.error('Error dealing:', error);
+            alert('Connection error');
+        }
     });
 
     callBtn.addEventListener('click', async () => {
-        const response = await fetch('/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_id: playerId, action: 'call' })
-        });
-        updateUI(await response.json());
+        try {
+            const response = await fetch('/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: playerId, action: 'call' })
+            });
+            updateUI(await response.json());
+        } catch (error) {
+            console.error('Error calling:', error);
+        }
     });
 
     raiseBtn.addEventListener('click', async () => {
-        const amount = parseInt(betAmountInput.value);
-        const response = await fetch('/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_id: playerId, action: 'raise', amount })
-        });
-        updateUI(await response.json());
+        try {
+            const amount = parseInt(betAmountInput.value);
+            const response = await fetch('/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: playerId, action: 'raise', amount })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                alert(error.detail || 'Failed to raise');
+                return;
+            }
+            updateUI(await response.json());
+        } catch (error) {
+            console.error('Error raising:', error);
+        }
     });
 
     foldBtn.addEventListener('click', async () => {
-        const response = await fetch('/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_id: playerId, action: 'fold' })
-        });
-        updateUI(await response.json());
+        try {
+            const response = await fetch('/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: playerId, action: 'fold' })
+            });
+            updateUI(await response.json());
+        } catch (error) {
+            console.error('Error folding:', error);
+        }
     });
 
     drawBtn.addEventListener('click', async () => {
-        const response = await fetch('/draw', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player_id: playerId, held_indices: heldIndices })
-        });
-        updateUI(await response.json());
+        try {
+            const response = await fetch('/draw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: playerId, held_indices: heldIndices })
+            });
+            updateUI(await response.json());
+        } catch (error) {
+            console.error('Error drawing:', error);
+        }
     });
 
     shuffleBtn.addEventListener('click', async () => {
         await fetch('/shuffle', { method: 'POST' });
         alert('Deck shuffled!');
         fetchState();
+    });
+
+    resetBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to reset the entire game? All progress will be lost.')) {
+            await fetch('/reset', { method: 'POST' });
+            fetchState();
+            fetchChatMessages();
+        }
     });
 
     function getSuitSymbol(suit) {

@@ -173,7 +173,7 @@ class Player:
 
 
 class Table:
-    def __init__(self, chat_manager: Optional['ChatManager'] = None):
+    def __init__(self, chat_manager: Optional["ChatManager"] = None):
         self.players: List[Player] = []
         self.deck: List[Card] = []
         self.pot = 0
@@ -241,11 +241,10 @@ class Table:
                 )
                 if self.active_player_idx == start_idx:
                     break  # All inactive
-            
+
             if self.chat_manager:
                 active_p = self.players[self.active_player_idx]
                 self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
-
 
     def handle_action(self, player_id: str, action: str, amount: int = 0):
         player = next((p for p in self.players if p.id == player_id), None)
@@ -285,7 +284,9 @@ class Table:
             self.current_bet = raise_to
             player.last_action = f"Raise to {raise_to}"
             if self.chat_manager:
-                self.chat_manager.add_message("system", f"{player.name} raises to {raise_to}.")
+                self.chat_manager.add_message(
+                    "system", f"{player.name} raises to {raise_to}."
+                )
         elif action == "check":
             if self.current_bet > player.current_bet:
                 raise ValueError("Cannot check when there is a bet")
@@ -312,7 +313,7 @@ class Table:
                 break
 
         self.active_player_idx = next_idx
-        
+
         # Check if betting round is complete
         # Everyone active must have matched current_bet (or be all-in)
         # AND everyone must have acted at least once this round.
@@ -334,17 +335,19 @@ class Table:
                     p.current_bet = 0
                 self._reset_active_player()
                 if self.chat_manager:
-                    self.chat_manager.add_message("system", "Drawing Phase. Choose cards to replace.")
+                    self.chat_manager.add_message(
+                        "system", "Drawing Phase. Choose cards to replace."
+                    )
 
             elif self.phase == "betting_2":
                 self.phase = "showdown"
                 self._showdown()
 
             return
-        
+
         if self.chat_manager:
-             active_p = self.players[self.active_player_idx]
-             self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
+            active_p = self.players[self.active_player_idx]
+            self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
 
     def _reset_active_player(self):
         self.active_player_idx = (self.dealer_idx + 1) % len(self.players)
@@ -380,9 +383,11 @@ class Table:
         player.hand = Hand(cards=new_cards, rank=rank_name, score=score)
         player.last_action = "Draw"
         player.has_acted = True
-        
+
         if self.chat_manager:
-            self.chat_manager.add_message("system", f"{player.name} drew {count_drawn} cards.")
+            self.chat_manager.add_message(
+                "system", f"{player.name} drew {count_drawn} cards."
+            )
 
         self._advance_turn_drawing()
 
@@ -403,12 +408,17 @@ class Table:
             self._reset_active_player()
             if self.chat_manager:
                 self.chat_manager.add_message("system", "Second Betting Phase.")
-                self.chat_manager.add_message("system", f"{self.players[self.active_player_idx].name}'s turn.")
+                self.chat_manager.add_message(
+                    "system", f"{self.players[self.active_player_idx].name}'s turn."
+                )
         else:
             # Move to next player
             self._move_to_next_active_player()
             if self.chat_manager:
-                self.chat_manager.add_message("system", f"{self.players[self.active_player_idx].name}'s turn to draw.")
+                self.chat_manager.add_message(
+                    "system",
+                    f"{self.players[self.active_player_idx].name}'s turn to draw.",
+                )
 
     def _move_to_next_active_player(self):
         start_idx = self.active_player_idx
@@ -476,19 +486,21 @@ class Table:
         active_players = [p for p in self.players if not p.is_folded and p.is_active]
         if not active_players:
             return
-            
+
         if self.chat_manager:
             self.chat_manager.add_message("system", "--- Showdown ---")
             for p in active_players:
-                self.chat_manager.add_message("system", f"{p.name} shows {p.hand.rank} ({p.hand.score})")
+                self.chat_manager.add_message(
+                    "system", f"{p.name} shows {p.hand.rank} ({p.hand.score})"
+                )
 
         winner = max(active_players, key=lambda p: p.hand.score)
         winner.balance += self.pot
         winner.last_action = f"Wins ${self.pot} with {winner.hand.rank}"
-        
+
         if self.chat_manager:
             self.chat_manager.add_message("system", f"{winner.name} wins ${self.pot}!")
-            
+
         self.pot = 0
         self.phase = "waiting"
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
@@ -500,8 +512,10 @@ class Table:
             winner.balance += self.pot
             winner.last_action = f"Wins ${self.pot} (everyone else folded)"
             if self.chat_manager:
-                self.chat_manager.add_message("system", f"{winner.name} wins ${self.pot} (all others folded).")
-                
+                self.chat_manager.add_message(
+                    "system", f"{winner.name} wins ${self.pot} (all others folded)."
+                )
+
         self.pot = 0
         self.phase = "waiting"
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)

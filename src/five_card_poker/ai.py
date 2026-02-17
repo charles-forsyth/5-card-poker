@@ -128,3 +128,46 @@ class GeminiPokerAgent:
         except Exception as e:
             print(f"Gemini Error: {e}")
             return self._rule_based_draw(player_state)
+
+    def decide_chat_response(
+        self,
+        message: str,
+        history: List[str],
+        player_state: PlayerState,
+        table_state: TableState,
+    ) -> str:
+        hand_str = self._format_hand(player_state.hand)
+        history_str = "\n".join(history[-5:])
+
+        prompt = f"""
+        You are an AI player in a 5-Card Draw Poker game. 
+        Your Name: {player_state.name}.
+        Your Hand: {hand_str} ({player_state.hand.rank if player_state.hand else "Unknown"}).
+        Game Phase: {table_state.phase}.
+        Recent Chat History:
+        {history_str}
+        
+        User just said: "{message}"
+        
+        Respond to the user or comment on the game in a short, trash-talking but professional poker player persona. 
+        Keep it under 20 words.
+        
+        Respond ONLY with a JSON object:
+        {{
+            "response": "your message here"
+        }}
+        """
+
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            elif text.startswith("```"):
+                text = text[3:-3].strip()
+
+            data = json.loads(text)
+            return data.get("response", "Good luck, you'll need it.")
+        except Exception as e:
+            print(f"Gemini Chat Error: {e}")
+            return "Nice move."

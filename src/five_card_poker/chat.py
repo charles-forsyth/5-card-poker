@@ -3,11 +3,13 @@ from pydantic import BaseModel
 import time
 import uuid
 
+
 class ChatMessage(BaseModel):
     id: str = str(uuid.uuid4())
     player_id: str
     text: str
     timestamp: float = time.time()
+
 
 class ChatManager:
     def __init__(self):
