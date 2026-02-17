@@ -58,11 +58,21 @@ def test_api_chat_send():
 
 
 def test_api_chat_get():
+
     # Send a message first
+
     client.post("/chat/send", json={"player_id": "player1", "text": "Test Get"})
 
     response = client.get("/chat/messages")
+
     assert response.status_code == 200
+
     data = response.json()
+
     assert len(data) > 0
-    assert data[-1]["text"] == "Test Get"
+
+    # Check if our message is in the last two (in case a bot replied)
+
+    message_texts = [msg["text"] for msg in data[-2:]]
+
+    assert "Test Get" in message_texts

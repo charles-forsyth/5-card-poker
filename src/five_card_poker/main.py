@@ -1,7 +1,9 @@
+import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+import os
 from .logic import Table, Player, PlayerType
 from .models import ActionRequest, DrawRequest, BetRequest, ChatRequest
 from .ai import GeminiPokerAgent
@@ -9,8 +11,13 @@ from .chat import ChatManager
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="src/five_card_poker/static"), name="static")
-templates = Jinja2Templates(directory="src/five_card_poker/templates")
+# Calculate absolute paths for static and templates
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 chat_manager = ChatManager()
 table = Table(chat_manager=chat_manager)
@@ -137,3 +144,11 @@ async def send_chat_message(request: ChatRequest):
 @app.get("/chat/messages")
 async def get_chat_messages(limit: int = 50):
     return chat_manager.get_messages(limit=limit)
+
+
+def main():
+    uvicorn.run("five_card_poker.main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+if __name__ == "__main__":
+    main()

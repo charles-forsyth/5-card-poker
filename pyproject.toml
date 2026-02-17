@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "5-card-poker"
-version = "0.3.1"
+version = "0.3.2"
 description = "A 5 card poker web app with a darkmode and advanced javascript features"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -18,6 +18,9 @@ dependencies = [
     "uvicorn>=0.39.0",
     "google-generativeai>=0.3.0",
 ]
+
+[project.scripts]
+five-card-poker = "five_card_poker.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/five_card_poker"]
