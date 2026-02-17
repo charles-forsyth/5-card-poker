@@ -7,7 +7,10 @@ from unittest.mock import MagicMock
 # It provides shared fixtures for the test suite.
 
 # Add the project source directory to sys.path so tests can import modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))
+)
+
 
 @pytest.fixture
 def mock_card():
@@ -16,6 +19,7 @@ def mock_card():
     card.suit = "hearts"
     card.rank = 10
     return card
+
 
 @pytest.fixture
 def mock_hand():
@@ -28,6 +32,7 @@ def mock_hand():
         cards.append(card)
     return cards
 
+
 @pytest.fixture
 def game_state():
     """Provides a basic mock of the GameState."""
@@ -37,11 +42,13 @@ def game_state():
     state.players = []
     return state
 
+
 @pytest.fixture
 def mock_app():
     """Fixture providing a mock FastAPI app."""
     app = MagicMock()
     return app
+
 
 @pytest.fixture
 def client(mock_app):
@@ -57,5 +64,5 @@ def client(mock_app):
     get_response.status_code = 200
     get_response.json.return_value = {"state": "mock-state"}
     client.get.return_value = get_response
-    
+
     return client

@@ -112,10 +112,11 @@ async def take_action(
 
     # Check if AI turn follows
     current_player = table.players[table.active_player_idx]
-    if (
-        current_player.type == PlayerType.AI
-        and table.phase in ["betting_1", "betting_2", "drawing"]
-    ):
+    if current_player.type == PlayerType.AI and table.phase in [
+        "betting_1",
+        "betting_2",
+        "drawing",
+    ]:
         background_tasks.add_task(run_ai_turns, table)
 
     return table.to_state(request.player_id)
@@ -137,10 +138,11 @@ async def draw_cards(
 
     # Check if AI turn follows
     current_player = table.players[table.active_player_idx]
-    if (
-        current_player.type == PlayerType.AI
-        and table.phase in ["betting_1", "betting_2", "drawing"]
-    ):
+    if current_player.type == PlayerType.AI and table.phase in [
+        "betting_1",
+        "betting_2",
+        "drawing",
+    ]:
         background_tasks.add_task(run_ai_turns, table)
 
     return table.to_state(player_id)
@@ -164,10 +166,11 @@ async def place_bet(
 
     # Check if AI turn follows (e.g. if dealer button makes AI first)
     current_player = table.players[table.active_player_idx]
-    if (
-        current_player.type == PlayerType.AI
-        and table.phase in ["betting_1", "betting_2", "drawing"]
-    ):
+    if current_player.type == PlayerType.AI and table.phase in [
+        "betting_1",
+        "betting_2",
+        "drawing",
+    ]:
         background_tasks.add_task(run_ai_turns, table)
 
     return table.to_state("player1")

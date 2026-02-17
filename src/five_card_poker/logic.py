@@ -373,7 +373,7 @@ class Table:
         player = next((p for p in self.players if p.id == player_id), None)
         if not player:
             raise ValueError("Player not found")
-        
+
         # Validate turn
         if self.players[self.active_player_idx].id != player_id:
             raise ValueError(f"It is not {player.name}'s turn to draw")
@@ -500,20 +500,27 @@ class Table:
         self.handle_draw(player_id, held)
 
     def _showdown(self) -> None:
-        active_players = [p for p in self.players if not p.is_folded and p.is_active]
+        active_players = [
+            p for p in self.players if not p.is_folded and p.is_active and p.hand
+        ]
         if not active_players:
             return
 
         if self.chat_manager:
             self.chat_manager.add_message("system", "--- Showdown ---")
             for p in active_players:
+                assert p.hand is not None
                 self.chat_manager.add_message(
                     "system", f"{p.name} shows {p.hand.rank} ({p.hand.score})"
                 )
 
-        winner = max(active_players, key=lambda p: p.hand.score)
-        winner.balance += self.pot
-        winner.last_action = f"Wins ${self.pot} with {winner.hand.rank}"
+        winner = max(active_players, key=lambda p: p.hand.score if p.hand else -1)
+        if winner.hand:
+            winner.balance += self.pot
+            winner.last_action = f"Wins ${self.pot} with {winner.hand.rank}"
+        else:
+            winner.balance += self.pot
+            winner.last_action = f"Wins ${self.pot}"
 
         if self.chat_manager:
             self.chat_manager.add_message("system", f"{winner.name} wins ${self.pot}!")

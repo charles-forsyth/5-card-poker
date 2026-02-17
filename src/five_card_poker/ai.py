@@ -7,6 +7,7 @@ from .models import PlayerState, TableState, Hand
 
 logger = logging.getLogger(__name__)
 
+
 class GeminiPokerAgent:
     def __init__(
         self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-pro"
@@ -17,7 +18,9 @@ class GeminiPokerAgent:
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
         else:
-            logger.warning("No API key found for GeminiPokerAgent. Falling back to rule-based logic.")
+            logger.warning(
+                "No API key found for GeminiPokerAgent. Falling back to rule-based logic."
+            )
 
     def _format_hand(self, hand: Optional[Hand]) -> str:
         if not hand:
@@ -89,10 +92,13 @@ class GeminiPokerAgent:
             response = await self.client.aio.models.generate_content(
                 model=self.model_name,
                 contents=prompt,
-                config={'response_mime_type': 'application/json'}
+                config={"response_mime_type": "application/json"},
             )
-            data = json.loads(response.text)
-            return data.get("action", "fold"), data.get("amount", 0)
+            if response.text:
+                data = json.loads(response.text)
+                return data.get("action", "fold"), data.get("amount", 0)
+            else:
+                return self._rule_based_betting(player_state, table_state)
         except Exception as e:
             logger.error(f"Gemini Betting Error: {e}")
             return self._rule_based_betting(player_state, table_state)
@@ -121,10 +127,13 @@ class GeminiPokerAgent:
             response = await self.client.aio.models.generate_content(
                 model=self.model_name,
                 contents=prompt,
-                config={'response_mime_type': 'application/json'}
+                config={"response_mime_type": "application/json"},
             )
-            data = json.loads(response.text)
-            return data.get("held_indices", [])
+            if response.text:
+                data = json.loads(response.text)
+                return data.get("held_indices", [])
+            else:
+                return self._rule_based_draw(player_state)
         except Exception as e:
             logger.error(f"Gemini Draw Error: {e}")
             return self._rule_based_draw(player_state)
@@ -165,10 +174,13 @@ class GeminiPokerAgent:
             response = await self.client.aio.models.generate_content(
                 model=self.model_name,
                 contents=prompt,
-                config={'response_mime_type': 'application/json'}
+                config={"response_mime_type": "application/json"},
             )
-            data = json.loads(response.text)
-            return data.get("response", "Good luck, you'll need it.")
+            if response.text:
+                data = json.loads(response.text)
+                return data.get("response", "Good luck, you'll need it.")
+            else:
+                return "Nice move."
         except Exception as e:
             logger.error(f"Gemini Chat Error: {e}")
             return "Nice move."

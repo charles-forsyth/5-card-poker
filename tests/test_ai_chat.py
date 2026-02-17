@@ -14,7 +14,7 @@ async def test_ai_chat_response_generation():
     # Mock response
     mock_response = MagicMock()
     mock_response.text = '{"response": "I have a great hand!"}'
-    
+
     with patch("google.genai.Client") as MockClient:
         mock_client = MockClient.return_value
         mock_client.aio = MagicMock()
@@ -22,7 +22,9 @@ async def test_ai_chat_response_generation():
         mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
         agent = GeminiPokerAgent(api_key="fake")
-        player_state = PlayerState(id="bot1", name="Bot 1", balance=100, type=PlayerType.AI)
+        player_state = PlayerState(
+            id="bot1", name="Bot 1", balance=100, type=PlayerType.AI
+        )
         table_state = TableState(
             pot=10,
             current_bet=5,
