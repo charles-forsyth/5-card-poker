@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from five_card_poker.ai import GeminiPokerAgent
 from five_card_poker.models import (
     Card,
@@ -13,24 +13,27 @@ from five_card_poker.models import (
 
 
 @pytest.fixture
-def mock_gemini_model():
-    with patch("google.generativeai.GenerativeModel") as MockModel:
-        mock_instance = MockModel.return_value
-        mock_instance.generate_content_async = AsyncMock()
-        yield mock_instance
+def mock_genai_client():
+    with patch("google.genai.Client") as MockClient:
+        mock_client = MockClient.return_value
+        # The new SDK uses client.aio.models.generate_content
+        mock_client.aio = MagicMock()
+        mock_client.aio.models = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock()
+        yield mock_client
 
 
 @pytest.fixture
-def agent(mock_gemini_model):
+def agent(mock_genai_client):
     return GeminiPokerAgent(api_key="fake_key")
 
 
 @pytest.mark.asyncio
-async def test_decide_betting_action_call(agent, mock_gemini_model):
+async def test_decide_betting_action_call(agent, mock_genai_client):
     # Setup mock response
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.text = '{"action": "call", "amount": 0}'
-    mock_gemini_model.generate_content_async.return_value = mock_response
+    mock_genai_client.aio.models.generate_content.return_value = mock_response
 
     # Test context
     hand = Hand(
@@ -60,15 +63,15 @@ async def test_decide_betting_action_call(agent, mock_gemini_model):
     action, amount = await agent.decide_betting_action(player_state, table_state)
 
     assert action == "call"
-    assert amount == 0  # Amount is irrelevant for call usually, handled by logic
+    assert amount == 0
 
 
 @pytest.mark.asyncio
-async def test_decide_betting_action_raise(agent, mock_gemini_model):
+async def test_decide_betting_action_raise(agent, mock_genai_client):
     # Setup mock response
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.text = '{"action": "raise", "amount": 20}'
-    mock_gemini_model.generate_content_async.return_value = mock_response
+    mock_genai_client.aio.models.generate_content.return_value = mock_response
 
     # Test context
     hand = Hand(
@@ -102,12 +105,11 @@ async def test_decide_betting_action_raise(agent, mock_gemini_model):
 
 
 @pytest.mark.asyncio
-async def test_decide_draw_action(agent, mock_gemini_model):
+async def test_decide_draw_action(agent, mock_genai_client):
     # Setup mock response
-    mock_response = AsyncMock()
-    # Indices 0, 1, 4 to be held
+    mock_response = MagicMock()
     mock_response.text = '{"held_indices": [0, 1, 4]}'
-    mock_gemini_model.generate_content_async.return_value = mock_response
+    mock_genai_client.aio.models.generate_content.return_value = mock_response
 
     # Test context
     hand = Hand(

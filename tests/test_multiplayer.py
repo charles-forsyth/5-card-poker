@@ -32,6 +32,9 @@ def test_betting_round():
     table = Table()
     table.add_player(Player(id="p1", name="Alice", balance=100))
     table.add_player(Player(id="p2", name="Bot1", balance=100))
+    
+    # Ensure Alice (idx 0) acts first by setting dealer to idx 1
+    table.dealer_idx = 1
     table.start_game(ante=5)  # pot=10, cur_bet=0
 
     # Alice raises to 10
@@ -51,9 +54,16 @@ def test_drawing_round():
     table = Table()
     table.add_player(Player(id="p1", name="Alice", balance=100))
     table.add_player(Player(id="p2", name="Bot1", balance=100))
+    
+    # Ensure Alice (idx 0) acts first
+    table.dealer_idx = 1
     table.start_game(ante=5)
-    table.handle_action("p1", "call")
-    table.handle_action("p2", "call")
+    
+    # Betting round 1
+    table.handle_action("p1", "check")
+    table.handle_action("p2", "check")
+    
+    assert table.phase == "drawing"
 
     # Alice draws
     old_cards = list(table.players[0].hand.cards)

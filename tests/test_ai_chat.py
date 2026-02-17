@@ -1,7 +1,7 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from five_card_poker.ai import GeminiPokerAgent
-from five_card_poker.models import PlayerState, TableState
+from five_card_poker.models import PlayerState, TableState, PlayerType
 
 
 def test_ai_chat_response_method_exists():
@@ -10,29 +10,33 @@ def test_ai_chat_response_method_exists():
 
 
 @pytest.mark.asyncio
-@patch("google.generativeai.GenerativeModel.generate_content_async")
-async def test_ai_chat_response_generation(mock_generate):
+async def test_ai_chat_response_generation():
     # Mock response
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.text = '{"response": "I have a great hand!"}'
-    mock_generate.return_value = mock_response
+    
+    with patch("google.genai.Client") as MockClient:
+        mock_client = MockClient.return_value
+        mock_client.aio = MagicMock()
+        mock_client.aio.models = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-    agent = GeminiPokerAgent(api_key="fake")
-    player_state = PlayerState(id="bot1", name="Bot 1", balance=100, type="ai")
-    table_state = TableState(
-        pot=10,
-        current_bet=5,
-        phase="betting_1",
-        players=[],
-        dealer_idx=0,
-        deck_count=52,
-        active_player_id="bot1",
-    )
+        agent = GeminiPokerAgent(api_key="fake")
+        player_state = PlayerState(id="bot1", name="Bot 1", balance=100, type=PlayerType.AI)
+        table_state = TableState(
+            pot=10,
+            current_bet=5,
+            phase="betting_1",
+            players=[],
+            dealer_idx=0,
+            deck_count=52,
+            active_player_id="bot1",
+        )
 
-    response = await agent.decide_chat_response(
-        "Nice hand!", [], player_state, table_state
-    )
-    assert response == "I have a great hand!"
+        response = await agent.decide_chat_response(
+            "Nice hand!", [], player_state, table_state
+        )
+        assert response == "I have a great hand!"
 
 
 def test_chat_trigger_in_main():
@@ -47,7 +51,7 @@ def test_chat_trigger_in_main():
         table = app.state.table
         # Mock the agents to avoid real API calls
         for p in table.players:
-            if p.type == "AI" and p.agent:
+            if p.type == PlayerType.AI and p.agent:
                 p.agent.decide_chat_response = AsyncMock(return_value="Bot says hello")
 
         with patch("random.random", return_value=0.1):

@@ -174,7 +174,7 @@ def test_invalid_phase_betting():
     client.post("/bet", json={"bet": 10})  # Now in drawing phase
     response = client.post("/bet", json={"bet": 10})
     assert response.status_code == 400
-    assert "Not in betting phase" in response.json()["detail"]
+    assert "Not in waiting phase" in response.json()["detail"]
 
 
 def test_invalid_phase_drawing():
