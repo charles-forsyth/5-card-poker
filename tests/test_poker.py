@@ -137,3 +137,46 @@ def test_api_shuffle():
     assert response.status_code == 200
     assert response.json()["message"] == "Deck shuffled"
     assert response.json()["deck_count"] == 52
+
+
+def test_invalid_bet_negative():
+    client.post("/reset")
+    response = client.post("/bet", json={"bet": -10})
+    assert response.status_code == 400
+    assert "Bet must be positive" in response.json()["detail"]
+
+
+def test_invalid_bet_insufficient_balance():
+    client.post("/reset")
+    response = client.post("/bet", json={"bet": 200})
+    assert response.status_code == 400
+    assert "Insufficient balance" in response.json()["detail"]
+
+
+def test_invalid_phase_betting():
+    client.post("/reset")
+    client.post("/bet", json={"bet": 10})  # Now in drawing phase
+    response = client.post("/bet", json={"bet": 10})
+    assert response.status_code == 400
+    assert "Not in betting phase" in response.json()["detail"]
+
+
+def test_invalid_phase_drawing():
+    client.post("/reset")
+    response = client.post("/draw", json={"held_indices": [0, 1]})
+    assert response.status_code == 400
+    assert "Not in drawing phase" in response.json()["detail"]
+
+
+def test_invalid_held_indices():
+    client.post("/reset")
+    client.post("/bet", json={"bet": 10})
+    response = client.post("/draw", json={"held_indices": [5]})
+    assert response.status_code == 400
+    assert "Invalid held indices" in response.json()["detail"]
+
+
+def test_api_validation_error():
+    # Test Pydantic validation
+    response = client.post("/bet", json={"not_a_bet": 10})
+    assert response.status_code == 422  # Unprocessable Entity

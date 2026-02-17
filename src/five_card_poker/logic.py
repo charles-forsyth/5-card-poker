@@ -19,7 +19,18 @@ class GameLogic:
         self.deck = self._create_deck()
         random.shuffle(self.deck)
 
+    def reset(self):
+        self.shuffle()
+        self.balance = 100
+        self.current_bet = 0
+        self.current_hand = None
+        self.phase = "betting"
+
     def deal(self, bet: int) -> Hand:
+        if self.phase != "betting":
+            raise ValueError("Not in betting phase")
+        if bet <= 0:
+            raise ValueError("Bet must be positive")
         if bet > self.balance:
             raise ValueError("Insufficient balance")
 
@@ -38,6 +49,9 @@ class GameLogic:
     def draw(self, held_indices: list[int]) -> Hand:
         if self.phase != "drawing":
             raise ValueError("Not in drawing phase")
+
+        if not all(0 <= i < 5 for i in held_indices):
+            raise ValueError("Invalid held indices")
 
         new_cards = list(self.current_hand.cards)
         for i in range(5):

@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from .logic import GameLogic
+from .models import BetRequest, DrawRequest
 
 app = FastAPI()
 
@@ -36,11 +37,9 @@ async def get_state():
 
 
 @app.post("/bet")
-async def place_bet(request: Request):
-    data = await request.json()
-    bet = data.get("bet", 1)
+async def place_bet(request: BetRequest):
     try:
-        hand = game.deal(bet)
+        hand = game.deal(request.bet)
         return {
             "cards": [{"rank": c.rank.value, "suit": c.suit.value} for c in hand.cards],
             "rank": hand.rank,
@@ -50,15 +49,13 @@ async def place_bet(request: Request):
             "phase": game.phase,
         }
     except ValueError as e:
-        return {"error": str(e)}, 400
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/draw")
-async def draw_cards(request: Request):
-    data = await request.json()
-    held_indices = data.get("held_indices", [])
+async def draw_cards(request: DrawRequest):
     try:
-        hand = game.draw(held_indices)
+        hand = game.draw(request.held_indices)
         return {
             "cards": [{"rank": c.rank.value, "suit": c.suit.value} for c in hand.cards],
             "rank": hand.rank,
@@ -68,10 +65,16 @@ async def draw_cards(request: Request):
             "phase": game.phase,
         }
     except ValueError as e:
-        return {"error": str(e)}, 400
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/shuffle")
 async def shuffle_deck():
     game.shuffle()
     return {"message": "Deck shuffled", "deck_count": len(game.deck)}
+
+
+@app.post("/reset")
+async def reset_game():
+    game.reset()
+    return {"message": "Game reset", "balance": game.balance, "phase": game.phase}

@@ -1,5 +1,4 @@
 from five_card_poker.logic import GameLogic
-from five_card_poker.models import Card, Suit, Rank, Hand
 
 
 def test_calculate_payout():
@@ -18,19 +17,11 @@ def test_calculate_payout():
 
 def test_draw_cards():
     logic = GameLogic()
-    initial_cards = [
-        Card(suit=Suit.HEARTS, rank=Rank.ACE),
-        Card(suit=Suit.DIAMONDS, rank=Rank.ACE),
-        Card(suit=Suit.CLUBS, rank=Rank.TWO),
-        Card(suit=Suit.SPADES, rank=Rank.THREE),
-        Card(suit=Suit.HEARTS, rank=Rank.FOUR),
-    ]
-    # Manually set state for test
-    logic.current_hand = Hand(cards=initial_cards, rank="One Pair", score=114)
-    logic.phase = "drawing"
-    logic.current_bet = 10
+    # Deal a hand to ensure cards are removed from the deck
+    logic.deal(10)
+    initial_cards = list(logic.current_hand.cards)
 
-    # Hold the two Aces (indices 0 and 1)
+    # Hold the first two cards
     held_indices = [0, 1]
     final_hand = logic.draw(held_indices)
     new_cards = final_hand.cards
@@ -38,9 +29,11 @@ def test_draw_cards():
     assert len(new_cards) == 5
     assert new_cards[0] == initial_cards[0]
     assert new_cards[1] == initial_cards[1]
-    assert new_cards[2] != initial_cards[2]
-    assert new_cards[3] != initial_cards[3]
-    assert new_cards[4] != initial_cards[4]
+    # The other cards should have been replaced.
+    # Since we use a real deck now, they MUST be different.
+    assert new_cards[2] not in initial_cards
+    assert new_cards[3] not in initial_cards
+    assert new_cards[4] not in initial_cards
 
 
 def test_draw_all_cards():

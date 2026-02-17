@@ -47,3 +47,11 @@ class GameState(BaseModel):
     current_bet: int = 0
     phase: str = "betting"  # betting, drawing, result
     message: str = ""
+
+
+class BetRequest(BaseModel):
+    bet: int
+
+
+class DrawRequest(BaseModel):
+    held_indices: List[int]
