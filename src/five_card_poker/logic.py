@@ -2,7 +2,7 @@ import random
 import logging
 import asyncio
 from collections import Counter
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 from .models import Card, Suit, Rank, Hand, PlayerType, PlayerState, TableState
 from .ai import GeminiPokerAgent
 
@@ -13,22 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 class GameLogic:
-    def __init__(self):
-        self.balance = 100  # Legacy support
-        self.current_bet = 0
+    def __init__(self) -> None:
+        self.balance: int = 100  # Legacy support
+        self.current_bet: int = 0
         self.current_hand: Optional[Hand] = None
-        self.phase = "betting"
+        self.phase: str = "betting"
         self.deck: List[Card] = []
         self.shuffle()
 
-    def _create_deck(self):
+    def _create_deck(self) -> List[Card]:
         return [Card(suit=s, rank=r) for s in Suit for r in Rank]
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         self.deck = self._create_deck()
         random.shuffle(self.deck)
 
-    def deal(self, bet: int):
+    def deal(self, bet: int) -> Hand:
         if bet <= 0:
             raise ValueError("Bet must be positive")
         if bet > self.balance:
@@ -43,7 +43,7 @@ class GameLogic:
         self.phase = "drawing"
         return self.current_hand
 
-    def draw(self, held_indices: List[int]):
+    def draw(self, held_indices: List[int]) -> Hand:
         if self.phase != "drawing":
             raise ValueError("Not in drawing phase")
         if not self.current_hand:
@@ -98,7 +98,7 @@ class GameLogic:
         }
         return mapping[rank]
 
-    def evaluate_hand(self, cards: list[Card]) -> tuple[int, str]:
+    def evaluate_hand(self, cards: list[Card]) -> Tuple[int, str]:
         if len(cards) != 5:
             return 0, "Invalid Hand"
 
@@ -149,17 +149,17 @@ class Player:
         balance: int = 100,
         agent: Optional[GeminiPokerAgent] = None,
     ):
-        self.id = id
-        self.name = name
-        self.type = type
-        self.balance = balance
+        self.id: str = id
+        self.name: str = name
+        self.type: PlayerType = type
+        self.balance: int = balance
         self.hand: Optional[Hand] = None
-        self.is_folded = False
-        self.current_bet = 0
-        self.last_action = ""
-        self.is_active = True
-        self.has_acted = False
-        self.agent = agent
+        self.is_folded: bool = False
+        self.current_bet: int = 0
+        self.last_action: str = ""
+        self.is_active: bool = True
+        self.has_acted: bool = False
+        self.agent: Optional[GeminiPokerAgent] = agent
 
     def to_state(self, hide_hand: bool = True) -> PlayerState:
         return PlayerState(
@@ -177,37 +177,37 @@ class Player:
 
 
 class Table:
-    def __init__(self, chat_manager: Optional["ChatManager"] = None):
+    def __init__(self, chat_manager: Optional["ChatManager"] = None) -> None:
         self.players: List[Player] = []
         self.deck: List[Card] = []
-        self.pot = 0
-        self.current_bet = 0
-        self.phase = "waiting"  # waiting, betting_1, drawing, betting_2, showdown
-        self.active_player_idx = 0
-        self.dealer_idx = 0
-        self.evaluator = GameLogic()  # Use existing evaluation logic
-        self.chat_manager = chat_manager
-        self._lock = asyncio.Lock()
+        self.pot: int = 0
+        self.current_bet: int = 0
+        self.phase: str = "waiting"  # waiting, betting_1, drawing, betting_2, showdown
+        self.active_player_idx: int = 0
+        self.dealer_idx: int = 0
+        self.evaluator: GameLogic = GameLogic()  # Use existing evaluation logic
+        self.chat_manager: Optional["ChatManager"] = chat_manager
+        self._lock: asyncio.Lock = asyncio.Lock()
 
-    def add_player(self, player: Player):
+    def add_player(self, player: Player) -> None:
         self.players.append(player)
 
-    def _reset_has_acted(self):
+    def _reset_has_acted(self) -> None:
         for p in self.players:
             p.has_acted = False
 
-    def _create_deck(self):
+    def _create_deck(self) -> List[Card]:
         return [Card(suit=s, rank=r) for s in Suit for r in Rank]
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         self.deck = self._create_deck()
         random.shuffle(self.deck)
         if self.chat_manager:
             self.chat_manager.add_message("system", "Deck shuffled.")
 
-    def start_game(self, ante: int = 5):
+    def start_game(self, ante: int = 5) -> None:
         if self.phase != "waiting":
-            raise ValueError("Not in betting phase")
+            raise ValueError("Not in waiting phase")
 
         if any(p.type == PlayerType.HUMAN and p.balance < ante for p in self.players):
             raise ValueError("Insufficient balance")
@@ -251,10 +251,14 @@ class Table:
                 active_p = self.players[self.active_player_idx]
                 self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
 
-    def handle_action(self, player_id: str, action: str, amount: int = 0):
+    def handle_action(self, player_id: str, action: str, amount: int = 0) -> None:
         player = next((p for p in self.players if p.id == player_id), None)
         if not player:
             raise ValueError("Player not found")
+
+        # Validate turn
+        if self.players[self.active_player_idx].id != player_id:
+            raise ValueError(f"It is not {player.name}'s turn")
 
         if action == "fold":
             player.is_folded = True
@@ -302,7 +306,7 @@ class Table:
         player.has_acted = True
         self._advance_turn()
 
-    def _advance_turn(self):
+    def _advance_turn(self) -> None:
         # Check if round is over
         active_players = [p for p in self.players if not p.is_folded and p.is_active]
         if len(active_players) <= 1:
@@ -354,7 +358,7 @@ class Table:
             active_p = self.players[self.active_player_idx]
             self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
 
-    def _reset_active_player(self):
+    def _reset_active_player(self) -> None:
         self.active_player_idx = (self.dealer_idx + 1) % len(self.players)
         while (
             not self.players[self.active_player_idx].is_active
@@ -362,13 +366,18 @@ class Table:
         ):
             self.active_player_idx = (self.active_player_idx + 1) % len(self.players)
 
-    def handle_draw(self, player_id: str, held_indices: List[int]):
+    def handle_draw(self, player_id: str, held_indices: List[int]) -> None:
         if self.phase != "drawing":
             raise ValueError("Not in drawing phase")
 
         player = next((p for p in self.players if p.id == player_id), None)
         if not player:
             raise ValueError("Player not found")
+        
+        # Validate turn
+        if self.players[self.active_player_idx].id != player_id:
+            raise ValueError(f"It is not {player.name}'s turn to draw")
+
         if not player.hand:
             raise ValueError("Player has no hand")
 
@@ -396,7 +405,7 @@ class Table:
 
         self._advance_turn_drawing()
 
-    def _advance_turn_drawing(self):
+    def _advance_turn_drawing(self) -> None:
         # Move to next active player who hasn't drawn yet
         active_players = [p for p in self.players if not p.is_folded and p.is_active]
 
@@ -425,7 +434,7 @@ class Table:
                     f"{self.players[self.active_player_idx].name}'s turn to draw.",
                 )
 
-    def _move_to_next_active_player(self):
+    def _move_to_next_active_player(self) -> None:
         start_idx = self.active_player_idx
         next_idx = (self.active_player_idx + 1) % len(self.players)
         while self.players[next_idx].is_folded or not self.players[next_idx].is_active:
@@ -434,7 +443,7 @@ class Table:
                 break
         self.active_player_idx = next_idx
 
-    async def process_ai_turn(self):
+    async def process_ai_turn(self) -> None:
         """
         If the current active player is an AI, use their agent to decide and execute a move.
         """
@@ -475,7 +484,7 @@ class Table:
                 except ValueError:
                     self.handle_action(current_player.id, "fold")
 
-    def ai_draw(self, player_id: str):
+    def ai_draw(self, player_id: str) -> None:
         # Legacy method - kept for compatibility
         player = next((p for p in self.players if p.id == player_id), None)
         if not player or not player.hand:
@@ -490,7 +499,7 @@ class Table:
 
         self.handle_draw(player_id, held)
 
-    def _showdown(self):
+    def _showdown(self) -> None:
         active_players = [p for p in self.players if not p.is_folded and p.is_active]
         if not active_players:
             return
@@ -513,7 +522,7 @@ class Table:
         self.phase = "waiting"
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
 
-    def _end_hand(self):
+    def _end_hand(self) -> None:
         active_players = [p for p in self.players if not p.is_folded and p.is_active]
         if active_players:
             winner = active_players[0]

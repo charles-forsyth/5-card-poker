@@ -34,6 +34,7 @@ def test_table_logs_events():
     table.add_player(p2)
 
     # Start game (should log "Game started")
+    table.dealer_idx = 1
     table.start_game(ante=5)
     assert len(chat_manager.messages) > 0
     message_texts = [msg.text.lower() for msg in chat_manager.messages]

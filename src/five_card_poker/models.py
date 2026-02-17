@@ -1,6 +1,6 @@
 from enum import Enum
-from pydantic import BaseModel
 from typing import List, Optional
+from pydantic import BaseModel, Field
 
 
 class Suit(str, Enum):
@@ -30,7 +30,7 @@ class Card(BaseModel):
     suit: Suit
     rank: Rank
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.rank.value} of {self.suit.value}"
 
 
@@ -80,7 +80,7 @@ class GameState(BaseModel):
 class ActionRequest(BaseModel):
     player_id: str
     action: str  # call, raise, fold, check
-    amount: Optional[int] = 0
+    amount: Optional[int] = Field(default=0)
 
 
 class BetRequest(BaseModel):

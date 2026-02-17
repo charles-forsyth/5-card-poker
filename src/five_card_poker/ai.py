@@ -1,23 +1,23 @@
 import json
 import os
-import google.generativeai as genai
+import logging
+from google import genai
 from typing import List, Tuple, Optional
 from .models import PlayerState, TableState, Hand
 
+logger = logging.getLogger(__name__)
 
 class GeminiPokerAgent:
     def __init__(
         self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-pro"
     ):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-        if not self.api_key:
-            # In a real app we might raise error, but here let's warn or handle gracefully?
-            # For now, let's assume it's provided or mocked.
-            pass
+        self.model_name = model_name
+        self.client = None
+        if self.api_key:
+            self.client = genai.Client(api_key=self.api_key)
         else:
-            genai.configure(api_key=self.api_key)
-
-        self.model = genai.GenerativeModel(model_name)
+            logger.warning("No API key found for GeminiPokerAgent. Falling back to rule-based logic.")
 
     def _format_hand(self, hand: Optional[Hand]) -> str:
         if not hand:
@@ -59,6 +59,9 @@ class GeminiPokerAgent:
     async def decide_betting_action(
         self, player_state: PlayerState, table_state: TableState
     ) -> Tuple[str, int]:
+        if not self.client:
+            return self._rule_based_betting(player_state, table_state)
+
         hand_str = self._format_hand(player_state.hand)
         prompt = f"""
         You are playing 5-Card Draw Poker.
@@ -83,23 +86,23 @@ class GeminiPokerAgent:
         """
 
         try:
-            response = await self.model.generate_content_async(prompt)
-            # Cleanup JSON block if present
-            text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
-
-            data = json.loads(text)
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
+            data = json.loads(response.text)
             return data.get("action", "fold"), data.get("amount", 0)
         except Exception as e:
-            print(f"Gemini Error: {e}")
+            logger.error(f"Gemini Betting Error: {e}")
             return self._rule_based_betting(player_state, table_state)
 
     async def decide_draw_action(
         self, player_state: PlayerState, table_state: TableState
     ) -> List[int]:
+        if not self.client:
+            return self._rule_based_draw(player_state)
+
         hand_str = self._format_hand(player_state.hand)
         prompt = f"""
         You are playing 5-Card Draw Poker. It is the Draw phase.
@@ -115,18 +118,15 @@ class GeminiPokerAgent:
         """
 
         try:
-            response = await self.model.generate_content_async(prompt)
-            # Cleanup JSON block if present
-            text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
-
-            data = json.loads(text)
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
+            data = json.loads(response.text)
             return data.get("held_indices", [])
         except Exception as e:
-            print(f"Gemini Error: {e}")
+            logger.error(f"Gemini Draw Error: {e}")
             return self._rule_based_draw(player_state)
 
     async def decide_chat_response(
@@ -136,6 +136,9 @@ class GeminiPokerAgent:
         player_state: PlayerState,
         table_state: TableState,
     ) -> str:
+        if not self.client:
+            return "Nice move."
+
         hand_str = self._format_hand(player_state.hand)
         history_str = "\n".join(history[-5:])
 
@@ -159,15 +162,13 @@ class GeminiPokerAgent:
         """
 
         try:
-            response = await self.model.generate_content_async(prompt)
-            text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
-
-            data = json.loads(text)
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
+            data = json.loads(response.text)
             return data.get("response", "Good luck, you'll need it.")
         except Exception as e:
-            print(f"Gemini Chat Error: {e}")
+            logger.error(f"Gemini Chat Error: {e}")
             return "Nice move."

@@ -1,104 +1,89 @@
-# Design Document: 5-Card Poker - Reliability & AI Upgrade
+# Design Document: Stability & Performance Upgrades
 
 ## 1. Executive Summary
-This document outlines the architectural overhaul required to address critical stability issues (Draw Phase Freeze, Deck Shuffle Bug) and implement Dynamic AI Player Count. The proposed solution shifts the core game logic from the frontend to a robust, testable Python backend using FastAPI.
+This document outlines the technical design for a major refactoring of the `5-card-poker` application. The primary objectives are to unblock the server during AI processing, modernize the technology stack, and harden the core game logic against edge cases.
 
-## 2. Problem Analysis
+## 2. Goal 1: Asynchronous AI State Machine
+**Current Issue:**
+The current implementation uses a `while` loop inside the primary `table._lock` within API handlers (`/action`, `/bet`, `/draw`). This holds the lock while waiting for slow LLM API calls, causing the server to freeze for all other requests (including `/state` polling).
 
-### 2.1 Draw Phase Freeze
-**Root Cause Hypothesis:** Complex state mutations in the frontend (likely within a `useEffect` or deep prop drilling) are causing race conditions or infinite re-render loops during the draw phase.
-**Solution:** Decouple game state from UI rendering. The frontend should purely reflect the state provided by the backend.
+**Proposed Solution:**
+Decouple the *decision* to process an AI turn from the *execution* of that turn. We will implement an "AI Loop" that runs as a background task, triggered whenever the game state transitions to an AI player's turn.
 
-### 2.2 Deck Shuffle Bug
-**Root Cause Hypothesis:** JavaScript's `Math.random()` or incorrect array mutation in React state is leading to predictable or failed shuffles.
-**Solution:** Utilize Python's `random.shuffle()` (Mersenne Twister) or `secrets` module for cryptographically secure, robust shuffling on the server.
+### 2.1 The "Background Loop" Pattern
+1.  **Trigger:** When a human player completes an action (or the game starts), `Table._advance_turn()` is called.
+2.  **Check:** If the `active_player` is an AI, the system **does not** immediately await `process_ai_turn()`.
+3.  **Signal:** Instead, it fires an `asyncio.Event` or adds a task to an `asyncio.Queue`.
+4.  **Worker:** A dedicated, long-running background task (`ai_worker`) waits for this signal.
+    *   **Step A (Read):** Acquire Lock -> Read/Copy Game State -> Release Lock.
+    *   **Step B (Think):** Call LLM API (No Lock held). This is the slow part.
+    *   **Step C (Act):** Acquire Lock -> Validate Turn (ensure game hasn't changed invalidly) -> Apply Action -> Release Lock.
+    *   **Step D (Loop):** If next player is also AI, repeat immediately.
 
-### 2.3 Dynamic AI Player Count
-**Requirement:** Support a variable number of AI opponents.
-**Solution:** Parameterize the `GameEngine` initialization to accept `num_players`. The backend will instantiate `AIPlayer` objects dynamically.
-
-## 3. Proposed Architecture
-
-### 3.1 Backend-First Approach (The "Skywalker" Pattern)
-We will implement a Python-based Game Engine packaged with `uv`.
-
-**Directory Structure:**
+### 2.2 Sequence Diagram
 ```text
-backend/
-├── pyproject.toml         # Project metadata & dependencies
-├── src/
-│   └── poker_engine/
-│       ├── __init__.py
-│       ├── engine.py      # Core Game Loop & State Machine
-│       ├── deck.py        # Deck & Card Classes
-│       ├── player.py      # Human & AI Player Logic
-│       └── api.py         # FastAPI Routes
-└── tests/
-    ├── test_engine.py
-    └── test_deck.py
+Human Request (/action)
+   |
+   +-> [Lock] Update State -> Next Player is AI? -> [Signal Worker] -> [Unlock] -> Return 200 OK
+                                      |
+Background Worker --------------------+
+   |
+   +-> Wait for Signal
+   +-> [Lock] Get Snapshot [Unlock]
+   +-> Call Gemini API (Slow, Non-blocking)
+   +-> [Lock] Apply Move -> Next Player is AI? -> [Signal Self] -> [Unlock]
 ```
 
-### 3.2 API Contract (FastAPI)
+## 3. Goal 2: Modernization & Deprecations
 
-*   `POST /game/start`: Initializes a new game.
-    *   Body: `{ "human_players": 1, "ai_players": N }`
-    *   Response: `{ "game_id": "uuid", "state": { ... } }`
-*   `POST /game/{game_id}/draw`: Triggers the draw phase for a player.
-    *   Body: `{ "player_id": "pid", "cards_to_discard": [indices] }`
-    *   Response: Updated Game State.
-*   `GET /game/{game_id}/state`: Polling endpoint for UI updates (or WebSocket upgrade).
-
-## 4. Implementation Details
-
-### 4.1 The Deck (Fixing the Shuffle)
+### 3.1 FastAPI Lifespan Events
+**Current:** Uses deprecated `@app.on_event("startup")`.
+**New:** Use the `contextlib.asynccontextmanager` pattern.
 ```python
-# src/poker_engine/deck.py
-import random
-from enum import Enum
-
-class Suit(Enum):
-    HEARTS = "♥"
-    DIAMONDS = "♦"
-    CLUBS = "♣"
-    SPADES = "♠"
-
-class Deck:
-    def __init__(self):
-        self.cards = [Card(r, s) for s in Suit for r in Rank]
-    
-    def shuffle(self):
-        # Reliable, in-place shuffle
-        random.shuffle(self.cards)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    init_game_state()
+    # Start AI Worker Task
+    yield
+    # Shutdown logic (Cancel Worker)
 ```
 
-### 4.2 Dynamic AI (New Feature)
-The `GameEngine` will iterate `n` times to create AI players.
-```python
-# src/poker_engine/engine.py
-def __init__(self, ai_count: int):
-    self.players = [HumanPlayer()]
-    for i in range(ai_count):
-        self.players.append(AIPlayer(difficulty="adaptive"))
-```
+### 3.2 Google GenAI SDK
+**Current:** `google-generativeai` (v1/v2).
+**New:** `google-genai` (Modern SDK).
+*   Update `GeminiPokerAgent` to use the new client signature.
+*   Ensure proper error handling for the new SDK's exceptions.
 
-## 5. Architectural Decision Records (ADRs)
+## 4. Goal 3: Logic Robustness
 
-### ADR-001: Python Backend for Game Logic
-*   **Status:** Accepted
-*   **Context:** Frontend-heavy logic has led to freezing and state bugs.
-*   **Decision:** Move all authoritative game state (Deck, Hands, Turn Order) to a Python FastAPI backend.
-*   **Consequences:**
-    *   (+) **Reliability:** Python's data structures are robust for game state.
-    *   (+) **Testability:** `pytest` can verify the Shuffle and Draw logic in isolation, preventing regressions.
-    *   (-) **Complexity:** Requires running a backend server.
+### 4.1 Refactoring `_advance_turn`
+The current `_advance_turn` method mixes phase transition logic with player iteration.
+**Refactor:**
+*   Split into `_next_active_player()` and `_check_phase_transition()`.
+*   `_check_phase_transition()` should explicitly handle:
+    *   `Betting 1` -> `Drawing`
+    *   `Drawing` -> `Betting 2`
+    *   `Betting 2` -> `Showdown`
+    *   `Showdown` -> `Reset/Waiting`
 
-### ADR-002: Stateless Frontend
-*   **Status:** Proposed
-*   **Context:** UI rendering is tightly coupled with game logic, causing freezes.
-*   **Decision:** The Frontend (Next.js/React) will act as a "View" only. It will render the state returned by the API.
-*   **Consequences:** eliminates render-loop freezes caused by complex state calculations in the browser.
+### 4.2 Hand Evaluation Optimization
+**Current:** `evaluate_hand` creates multiple lists and sorts repeatedly.
+**Optimization:**
+*   Pre-calculate `Rank` and `Suit` integer values.
+*   Use bitwise operations or optimized lookups for hand checking if performance profiling shows bottlenecks.
+*   Cache evaluation results on the `Hand` object so they aren't re-calculated on every state read.
 
-### ADR-003: Packaging with `uv`
-*   **Status:** Mandated
-*   **Context:** We need a reproducible environment.
-*   **Decision:** Use `uv` for dependency management and running the dev server.
+## 5. Goal 4: Stricter Type Hinting
+
+### 5.1 Actions Plan
+*   Enable `mypy` strict mode in `pyproject.toml`.
+*   Replace `dict` returns in `to_state` methods with Pydantic `BaseModel` schemas (already partially done, but needs enforcement).
+*   Add generic types for Lists (e.g., `List[Card]` instead of `list`).
+*   Ensure `Optional` types are handled with explicit `None` checks.
+
+## 6. Implementation Plan
+1.  **Refactor Logic:** Update `logic.py` first to support the new `_advance_turn` structure and strict types.
+2.  **Update Dependencies:** Switch SDKs and fix `main.py` lifespan.
+3.  **Implement Async Worker:** Add the `ai_worker` to `main.py` and hook it into the `Table` class.
+4.  **Verify:** Run tests (and add new concurrency tests) to ensure the server remains responsive during AI "thinking" time.
