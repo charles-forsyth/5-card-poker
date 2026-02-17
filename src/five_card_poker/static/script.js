@@ -214,4 +214,87 @@ document.addEventListener('DOMContentLoaded', () => {
             default: return '';
         }
     }
+
+    // --- Chat Logic ---
+    const chatMessagesDiv = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    let lastMessageTimestamp = 0;
+
+    async function fetchChatMessages() {
+        try {
+            const response = await fetch('/chat/messages?limit=50');
+            if (response.ok) {
+                const messages = await response.json();
+                renderChatMessages(messages);
+            }
+        } catch (error) {
+            console.error('Error fetching chat:', error);
+        }
+    }
+
+    function renderChatMessages(messages) {
+        let shouldScroll = false;
+        
+        // Only append new messages (simple check via length or content, 
+        // but for now we clear and re-render or check against last rendered count?
+        // Actually, re-rendering all is easiest for now, but not efficient.
+        // Let's just clear and re-render.
+        // To avoid flicker, we could diff, but let's keep it simple.
+        
+        const wasAtBottom = chatMessagesDiv.scrollHeight - chatMessagesDiv.scrollTop === chatMessagesDiv.clientHeight;
+        
+        chatMessagesDiv.innerHTML = '';
+        
+        messages.forEach(msg => {
+            const div = document.createElement('div');
+            div.classList.add('chat-msg');
+            
+            if (msg.player_id === 'system') {
+                div.classList.add('system');
+                div.textContent = msg.text;
+            } else if (msg.player_id === playerId) {
+                div.classList.add('me');
+                div.textContent = msg.text; // Text only for me
+            } else {
+                div.classList.add('other');
+                // Maybe prepend name if we knew it? 
+                // For now, assume player_id is descriptive enough or just show text
+                // Ideally, we'd map ID to Name.
+                div.textContent = `${msg.player_id}: ${msg.text}`;
+            }
+            
+            chatMessagesDiv.appendChild(div);
+        });
+
+        if (wasAtBottom) {
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+        }
+    }
+
+    async function sendChatMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        try {
+            await fetch('/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_id: playerId, text: text })
+            });
+            chatInput.value = '';
+            fetchChatMessages(); // Update immediately
+        } catch (error) {
+            console.error('Error sending chat:', error);
+        }
+    }
+
+    chatSendBtn.addEventListener('click', sendChatMessage);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+    });
+
+    // Poll for chat
+    setInterval(fetchChatMessages, 2000);
+    fetchChatMessages(); // Initial fetch
 });
