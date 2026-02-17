@@ -43,10 +43,11 @@ def test_chat_trigger_in_main():
         if p.type == "AI" and p.agent:
             p.agent.decide_chat_response = MagicMock(return_value="Bot says hello")
 
-    response = client.post(
-        "/chat/send", json={"player_id": "player1", "text": "Hello bots"}
-    )
-    assert response.status_code == 200
+    with patch("random.random", return_value=0.1):
+        response = client.post(
+            "/chat/send", json={"player_id": "player1", "text": "Hello bots"}
+        )
+        assert response.status_code == 200
 
     # Check if a bot replied
     chat_response = client.get("/chat/messages")
