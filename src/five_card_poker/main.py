@@ -3,15 +3,17 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from .logic import Table, Player, PlayerType
-from .models import ActionRequest, DrawRequest, BetRequest
+from .models import ActionRequest, DrawRequest, BetRequest, ChatRequest
 from .ai import GeminiPokerAgent
+from .chat import ChatManager
 
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="src/five_card_poker/static"), name="static")
 templates = Jinja2Templates(directory="src/five_card_poker/templates")
 
-table = Table()
+chat_manager = ChatManager()
+table = Table(chat_manager=chat_manager)
 table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
 # Use different system prompts or persona via distinct agents if desired
 agent1 = GeminiPokerAgent(model_name="gemini-2.5-pro")
@@ -94,11 +96,44 @@ async def shuffle_deck():
 
 @app.post("/reset")
 async def reset_game():
-    global table
-    table = Table()
+    global table, chat_manager
+    chat_manager = ChatManager()
+    table = Table(chat_manager=chat_manager)
     table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
     agent1 = GeminiPokerAgent(model_name="gemini-2.5-pro")
     agent2 = GeminiPokerAgent(model_name="gemini-2.5-pro")
     table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
     table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
     return {"message": "Game reset"}
+
+
+@app.post("/chat/send")
+async def send_chat_message(request: ChatRequest):
+    msg = chat_manager.add_message(request.player_id, request.text)
+
+    # Trigger bot responses
+    if request.player_id == "player1":
+        # Get history for context
+        history = [m.text for m in chat_manager.get_messages(limit=10)]
+
+        # Pick a bot to respond (or all)
+        for player in table.players:
+            if player.type == PlayerType.AI and player.agent:
+                # 50% chance for a bot to respond to keep it from being too noisy
+                import random
+
+                if random.random() < 0.5:
+                    player_state = player.to_state(hide_hand=False)
+                    table_state = table.to_state(player.id)
+                    response_text = player.agent.decide_chat_response(
+                        request.text, history, player_state, table_state
+                    )
+                    chat_manager.add_message(player.id, response_text)
+                    break  # Only one bot responds per user message
+
+    return msg
+
+
+@app.get("/chat/messages")
+async def get_chat_messages(limit: int = 50):
+    return chat_manager.get_messages(limit=limit)

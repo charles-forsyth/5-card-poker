@@ -1,8 +1,11 @@
 import random
 from collections import Counter
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from .models import Card, Suit, Rank, Hand, PlayerType, PlayerState, TableState
 from .ai import GeminiPokerAgent
+
+if TYPE_CHECKING:
+    from .chat import ChatManager
 
 
 class GameLogic:
@@ -170,7 +173,7 @@ class Player:
 
 
 class Table:
-    def __init__(self):
+    def __init__(self, chat_manager: Optional["ChatManager"] = None):
         self.players: List[Player] = []
         self.deck: List[Card] = []
         self.pot = 0
@@ -179,6 +182,7 @@ class Table:
         self.active_player_idx = 0
         self.dealer_idx = 0
         self.evaluator = GameLogic()  # Use existing evaluation logic
+        self.chat_manager = chat_manager
 
     def add_player(self, player: Player):
         self.players.append(player)
@@ -193,6 +197,8 @@ class Table:
     def shuffle(self):
         self.deck = self._create_deck()
         random.shuffle(self.deck)
+        if self.chat_manager:
+            self.chat_manager.add_message("system", "Deck shuffled.")
 
     def start_game(self, ante: int = 5):
         if self.phase != "waiting":
@@ -206,6 +212,9 @@ class Table:
         self.current_bet = 0
         self.phase = "betting_1"
         self._reset_has_acted()
+
+        if self.chat_manager:
+            self.chat_manager.add_message("system", f"Game started. Ante: ${ante}")
 
         for player in self.players:
             if player.balance >= ante:
@@ -233,6 +242,10 @@ class Table:
                 if self.active_player_idx == start_idx:
                     break  # All inactive
 
+            if self.chat_manager:
+                active_p = self.players[self.active_player_idx]
+                self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
+
     def handle_action(self, player_id: str, action: str, amount: int = 0):
         player = next((p for p in self.players if p.id == player_id), None)
         if not player:
@@ -241,6 +254,8 @@ class Table:
         if action == "fold":
             player.is_folded = True
             player.last_action = "Fold"
+            if self.chat_manager:
+                self.chat_manager.add_message("system", f"{player.name} folds.")
         elif action == "call":
             call_amount = self.current_bet - player.current_bet
             if player.balance < call_amount:
@@ -249,6 +264,8 @@ class Table:
             player.current_bet += call_amount
             self.pot += call_amount
             player.last_action = "Call"
+            if self.chat_manager:
+                self.chat_manager.add_message("system", f"{player.name} calls.")
         elif action == "raise":
             raise_to = amount
             if raise_to <= self.current_bet:
@@ -266,10 +283,16 @@ class Table:
             self.pot += total_needed
             self.current_bet = raise_to
             player.last_action = f"Raise to {raise_to}"
+            if self.chat_manager:
+                self.chat_manager.add_message(
+                    "system", f"{player.name} raises to {raise_to}."
+                )
         elif action == "check":
             if self.current_bet > player.current_bet:
                 raise ValueError("Cannot check when there is a bet")
             player.last_action = "Check"
+            if self.chat_manager:
+                self.chat_manager.add_message("system", f"{player.name} checks.")
 
         player.has_acted = True
         self._advance_turn()
@@ -311,12 +334,20 @@ class Table:
                 for p in self.players:
                     p.current_bet = 0
                 self._reset_active_player()
+                if self.chat_manager:
+                    self.chat_manager.add_message(
+                        "system", "Drawing Phase. Choose cards to replace."
+                    )
 
             elif self.phase == "betting_2":
                 self.phase = "showdown"
                 self._showdown()
 
             return
+
+        if self.chat_manager:
+            active_p = self.players[self.active_player_idx]
+            self.chat_manager.add_message("system", f"{active_p.name}'s turn.")
 
     def _reset_active_player(self):
         self.active_player_idx = (self.dealer_idx + 1) % len(self.players)
@@ -340,16 +371,23 @@ class Table:
             raise ValueError("Invalid held indices")
 
         new_cards = list(player.hand.cards)
+        count_drawn = 0
         for i in range(5):
             if i not in held_indices:
                 if not self.deck:
                     self.shuffle()
                 new_cards[i] = self.deck.pop()
+                count_drawn += 1
 
         score, rank_name = self.evaluator.evaluate_hand(new_cards)
         player.hand = Hand(cards=new_cards, rank=rank_name, score=score)
         player.last_action = "Draw"
         player.has_acted = True
+
+        if self.chat_manager:
+            self.chat_manager.add_message(
+                "system", f"{player.name} drew {count_drawn} cards."
+            )
 
         self._advance_turn_drawing()
 
@@ -368,9 +406,19 @@ class Table:
             for p in self.players:
                 p.current_bet = 0
             self._reset_active_player()
+            if self.chat_manager:
+                self.chat_manager.add_message("system", "Second Betting Phase.")
+                self.chat_manager.add_message(
+                    "system", f"{self.players[self.active_player_idx].name}'s turn."
+                )
         else:
             # Move to next player
             self._move_to_next_active_player()
+            if self.chat_manager:
+                self.chat_manager.add_message(
+                    "system",
+                    f"{self.players[self.active_player_idx].name}'s turn to draw.",
+                )
 
     def _move_to_next_active_player(self):
         start_idx = self.active_player_idx
@@ -439,9 +487,20 @@ class Table:
         if not active_players:
             return
 
+        if self.chat_manager:
+            self.chat_manager.add_message("system", "--- Showdown ---")
+            for p in active_players:
+                self.chat_manager.add_message(
+                    "system", f"{p.name} shows {p.hand.rank} ({p.hand.score})"
+                )
+
         winner = max(active_players, key=lambda p: p.hand.score)
         winner.balance += self.pot
         winner.last_action = f"Wins ${self.pot} with {winner.hand.rank}"
+
+        if self.chat_manager:
+            self.chat_manager.add_message("system", f"{winner.name} wins ${self.pot}!")
+
         self.pot = 0
         self.phase = "waiting"
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
@@ -452,6 +511,11 @@ class Table:
             winner = active_players[0]
             winner.balance += self.pot
             winner.last_action = f"Wins ${self.pot} (everyone else folded)"
+            if self.chat_manager:
+                self.chat_manager.add_message(
+                    "system", f"{winner.name} wins ${self.pot} (all others folded)."
+                )
+
         self.pot = 0
         self.phase = "waiting"
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
