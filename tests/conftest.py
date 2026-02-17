@@ -19,10 +19,10 @@ def mock_gemini_agent(monkeypatch, request):
     if "test_ai_player" in request.node.name or "test_ai_player" in str(request.fspath):
         return
 
-    def mock_decide_betting(self, player_state, table_state):
+    async def mock_decide_betting(self, player_state, table_state):
         return "call", 0
 
-    def mock_decide_draw(self, player_state, table_state):
+    async def mock_decide_draw(self, player_state, table_state):
         return []
 
     monkeypatch.setattr(GeminiPokerAgent, "decide_betting_action", mock_decide_betting)
