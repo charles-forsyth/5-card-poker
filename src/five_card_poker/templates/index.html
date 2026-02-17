@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5 Card Poker</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="dark-mode">
+    <div class="container">
+        <h1>5 Card Poker</h1>
+        <div class="controls">
+            <button id="theme-toggle">Toggle Light/Dark Mode</button>
+        </div>
+        <div class="game-area">
+            <div id="cards" class="cards-container">
+                <!-- Cards will be injected here -->
+                <div class="card back"></div>
+                <div class="card back"></div>
+                <div class="card back"></div>
+                <div class="card back"></div>
+                <div class="card back"></div>
+            </div>
+            <div class="info">
+                <p id="hand-rank">Hand: Waiting to Deal</p>
+                <p id="deck-count">Cards left: 52</p>
+            </div>
+            <div class="actions">
+                <button id="deal-btn" class="btn primary">Deal Hand</button>
+                <button id="shuffle-btn" class="btn secondary">Shuffle Deck</button>
+            </div>
+        </div>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
