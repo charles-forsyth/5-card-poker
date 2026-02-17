@@ -59,7 +59,6 @@ def test_api_chat_send():
 
 
 def test_api_chat_get():
-
     # Send a message first
 
     client.post("/chat/send", json={"player_id": "player1", "text": "Test Get"})
