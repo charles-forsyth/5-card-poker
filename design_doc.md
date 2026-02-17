@@ -1,50 +1,30 @@
-# Design Doc: Betting and Card Drawing
+# Design Doc: Fix Held Cards Refresh and Game State Transitions
 
-## Overview
-Add betting mechanics and a second phase (drawing cards) to the 5-card poker game.
+## Problem
+1. `Table.handle_draw` does not advance the game phase or turn, causing the game to hang in the "drawing" phase.
+2. `held_indices` might be misinterpreted if the turn doesn't advance.
+3. `GameLogic` legacy class has an empty deck on initialization, causing test failures.
+4. `test_poker.py` has outdated expectations for the API response format.
 
-## Architectural Changes
+## Proposed Changes
 
-### 1. Data Models (`models.py`)
-- `Card`: Remains the same.
-- `Hand`: Add a way to identify cards (e.g., index).
-- `GameState`:
-    - `balance: int` (Player's total money)
-    - `current_bet: int` (Amount wagered in current round)
-    - `phase: str` (e.g., "betting", "drawing", "result")
-    - `held_indices: List[int]`
+### 1. `src/five_card_poker/logic.py`
+- **`GameLogic.__init__`**: Call `self.shuffle()` to populate the deck.
+- **`Table.handle_draw`**: 
+    - Add phase check (`assert self.phase == "drawing"`).
+    - Add null check for `player.hand`.
+    - Advance to the next player after drawing.
+    - Transition to `betting_2` phase after all active players have drawn.
+- **`Table._advance_turn_drawing`**: New helper to manage drawing turn transitions.
 
-### 2. Game Logic (`logic.py`)
-- `GameLogic` needs to maintain state or we need a way to pass state back and forth.
-- `deal(n=5)`: Deals initial hand.
-- `draw(hand: List[Card], held_indices: List[int])`: Replaces cards not in `held_indices`.
-- `calculate_payout(rank: str, bet: int) -> int`: Returns payout based on hand rank.
-    - Royal Flush: 800x
-    - Straight Flush: 50x
-    - Four of a Kind: 25x
-    - Full House: 9x
-    - Flush: 6x
-    - Straight: 4x
-    - Three of a Kind: 3x
-    - Two Pair: 2x
-    - One Pair (Jacks or Better): 1x (Maybe just One Pair for now)
-    - High Card: 0
+### 2. `src/five_card_poker/main.py`
+- Update `/draw` to automatically handle AI drawing turns until it's the human's turn again or the phase changes.
 
-### 3. API Endpoints (`main.py`)
-- `GET /state`: Get current balance and game state.
-- `POST /bet`: Place a bet (deduct from balance) and get 5 cards.
-- `POST /draw`: Send `held_indices`, get replacement cards, evaluate final hand, update balance.
-- `POST /reset`: Reset balance (optional).
+### 3. `tests/test_poker.py`
+- Update API tests to match the `TableState` schema (e.g., check `players[0].hand.cards` instead of top-level `cards`).
+- Adjust expected phase in `test_api_bet` if needed, or modify `Table.start_game` to skip `betting_1` if only one player is active (though we have bots, so `betting_1` is correct).
 
-### 4. Frontend (`index.html`, `script.js`, `style.css`)
-- Display `Balance` and `Bet Amount`.
-- Input for `Bet Amount`.
-- Cards should be clickable to toggle a `held` class.
-- "Deal" button becomes "Draw" after initial deal.
-
-## Workflow
-1. Player sets bet and clicks "Deal".
-2. 5 cards shown. Phase = "drawing".
-3. Player selects cards to hold.
-4. Player clicks "Draw".
-5. Replacement cards shown. Final hand evaluated. Payout added to balance. Phase = "betting".
+## Verification Plan
+- Run `uv run pytest`.
+- Specifically check `test_drawing_round` in `tests/test_multiplayer.py`.
+- Manual verification in the UI.

@@ -3,44 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>5 Card Poker</title>
+    <title>5 Card Draw Poker</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="dark-mode">
     <div class="container">
-        <h1>5 Card Poker</h1>
+        <h1>5 Card Draw Poker</h1>
         <div class="controls">
             <button id="theme-toggle">Toggle Light/Dark Mode</button>
         </div>
-        <div class="game-area">
-            <div id="cards" class="cards-container">
-                <!-- Cards will be injected here -->
-                <div class="card back"></div>
-                <div class="card back"></div>
-                <div class="card back"></div>
-                <div class="card back"></div>
-                <div class="card back"></div>
+        
+        <div class="poker-table">
+            <div id="opponents" class="opponents-container">
+                <!-- Opponents will be injected here -->
             </div>
-        <div class="info">
+            
+            <div class="pot-area">
+                <div class="pot-display">
+                    <span id="pot-amount">$0</span>
+                    <span class="label">POT</span>
+                </div>
+            </div>
+
+            <div class="player-area">
+                <div id="cards" class="cards-container">
+                    <!-- Player's cards will be injected here -->
+                </div>
+                <div class="player-status">
+                    <span id="player-action-display"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-info">
             <div class="stats">
                 <p id="balance">Balance: $100</p>
-                <p id="deck-count">Cards left: 52</p>
+                <p id="deck-count"></p>
             </div>
-            <div class="current-round">
+            <div class="hand-info">
                 <p id="hand-rank">Hand: Waiting to Deal</p>
-                <p id="current-bet-display">Current Bet: $0</p>
+                <p id="phase-display">Phase: Waiting</p>
             </div>
         </div>
-        <div class="bet-controls">
-            <label for="bet-amount">Bet:</label>
-            <input type="number" id="bet-amount" value="5" min="1" step="1">
-        </div>
-        <div class="actions">
-            <button id="deal-btn" class="btn primary">Deal Hand</button>
-            <button id="draw-btn" class="btn primary" style="display: none;">Draw Cards</button>
-            <button id="shuffle-btn" class="btn secondary">Shuffle Deck</button>
-        </div>
+
+        <div class="controls-area">
+            <div class="bet-input" id="bet-input-container">
+                <label for="bet-amount">Bet:</label>
+                <input type="number" id="bet-amount" value="5" min="5" step="5">
+            </div>
+            
+            <div class="actions">
+                <button id="deal-btn" class="btn primary">Ante Up & Deal</button>
+                <div id="betting-actions" style="display: none;">
+                    <button id="fold-btn" class="btn danger">Fold</button>
+                    <button id="call-btn" class="btn success">Call</button>
+                    <button id="raise-btn" class="btn primary">Raise</button>
+                </div>
+                <button id="draw-btn" class="btn primary" style="display: none;">Draw Cards</button>
+                <button id="shuffle-btn" class="btn secondary">Shuffle Deck</button>
+            </div>
         </div>
     </div>
     <script src="/static/script.js"></script>

@@ -1,7 +1,7 @@
 {
   "project_name": "new-project",
-  "mission": "No mission defined yet.",
-  "status": "planning",
+  "mission": "Fix draw phase freeze and deck shuffle bug, and implement dynamic AI player count",
+  "status": "active",
   "version": "0.1.0",
   "current_phase": "init",
   "artifacts": {
