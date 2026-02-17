@@ -7,7 +7,7 @@ from .models import PlayerState, TableState, Hand
 
 class GeminiPokerAgent:
     def __init__(
-        self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-flash"
+        self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-pro"
     ):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         if not self.api_key:
@@ -23,6 +23,38 @@ class GeminiPokerAgent:
         if not hand:
             return "Unknown"
         return ", ".join([str(c) for c in hand.cards])
+
+    def _rule_based_betting(
+        self, player_state: PlayerState, table_state: TableState
+    ) -> Tuple[str, int]:
+        """Simple rule-based fallback for betting."""
+        if not player_state.hand:
+            return "fold", 0
+
+        # If we have a pair or better, call. Otherwise fold if bet is high.
+        if player_state.hand.score >= 100:  # One Pair or better
+            if table_state.current_bet > player_state.current_bet:
+                return "call", 0
+            else:
+                return "check", 0
+
+        if table_state.current_bet == player_state.current_bet:
+            return "check", 0
+
+        return "fold", 0
+
+    def _rule_based_draw(self, player_state: PlayerState) -> List[int]:
+        """Simple rule-based fallback for drawing."""
+        if not player_state.hand:
+            return [0, 1, 2, 3, 4]
+
+        from collections import Counter
+
+        # Keep pairs or better
+        ranks = [c.rank for c in player_state.hand.cards]
+        counts = Counter(ranks)
+        held = [i for i, c in enumerate(player_state.hand.cards) if counts[c.rank] >= 2]
+        return held
 
     def decide_betting_action(
         self, player_state: PlayerState, table_state: TableState
@@ -63,7 +95,7 @@ class GeminiPokerAgent:
             return data.get("action", "fold"), data.get("amount", 0)
         except Exception as e:
             print(f"Gemini Error: {e}")
-            return "fold", 0
+            return self._rule_based_betting(player_state, table_state)
 
     def decide_draw_action(
         self, player_state: PlayerState, table_state: TableState
@@ -95,4 +127,4 @@ class GeminiPokerAgent:
             return data.get("held_indices", [])
         except Exception as e:
             print(f"Gemini Error: {e}")
-            return []
+            return self._rule_based_draw(player_state)

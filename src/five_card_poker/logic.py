@@ -151,6 +151,7 @@ class Player:
         self.current_bet = 0
         self.last_action = ""
         self.is_active = True
+        self.has_acted = False
         self.agent = agent
 
     def to_state(self, hide_hand: bool = True) -> PlayerState:
@@ -164,6 +165,7 @@ class Player:
             current_bet=self.current_bet,
             last_action=self.last_action,
             is_active=self.is_active,
+            has_acted=self.has_acted,
         )
 
 
@@ -180,6 +182,10 @@ class Table:
 
     def add_player(self, player: Player):
         self.players.append(player)
+
+    def _reset_has_acted(self):
+        for p in self.players:
+            p.has_acted = False
 
     def _create_deck(self):
         return [Card(suit=s, rank=r) for s in Suit for r in Rank]
@@ -199,6 +205,7 @@ class Table:
         self.pot = 0
         self.current_bet = 0
         self.phase = "betting_1"
+        self._reset_has_acted()
 
         for player in self.players:
             if player.balance >= ante:
@@ -264,6 +271,7 @@ class Table:
                 raise ValueError("Cannot check when there is a bet")
             player.last_action = "Check"
 
+        player.has_acted = True
         self._advance_turn()
 
     def _advance_turn(self):
@@ -272,10 +280,6 @@ class Table:
         if len(active_players) <= 1:
             self._end_hand()
             return
-
-        # Simple logic: check if everyone matched the bet and had a turn
-        # This is a bit complex to get perfectly right in one go, but let's try a simplified version
-        # that satisfies the test "test_betting_round".
 
         # Move to next player
         start_idx = self.active_player_idx
@@ -289,41 +293,23 @@ class Table:
 
         # Check if betting round is complete
         # Everyone active must have matched current_bet (or be all-in)
-        # And usually everyone must have acted once, but let's assume if everyone matches, we move on.
-        # Exception: Big Blind option, etc.
-
+        # AND everyone must have acted at least once this round.
         all_matched = all(
             p.is_folded
             or not p.is_active
-            or p.current_bet == self.current_bet
+            or (p.current_bet == self.current_bet and p.has_acted)
             or p.balance == 0
             for p in self.players
         )
 
         if all_matched:
             # Check if we should move to next phase
-            # If everyone checked/called, we move.
-            # But wait, if someone raised, others need to call.
-            # If all matched is true, it means everyone has called the raise.
-
-            # Note: We need to ensure everyone has acted.
-            # For this "simple" implementation, we'll assume if all_matched is true, we proceed,
-            # unless it's the very start of a round and nobody acted (current_bet=0).
-            # But "check" counts as matching 0.
-            # Let's rely on the test flow:
-            # P1 raises to 10. P2 calls. All matched. Phase -> drawing.
-
-            # Special case: if we just started betting (current_bet=0), we wait for actions?
-            # Start game sets phase to betting_1.
-
             if self.phase == "betting_1":
-                # If everyone matched (e.g. checked or called raise), move to drawing
-                # reset bets
                 self.phase = "drawing"
                 self.current_bet = 0
+                self._reset_has_acted()
                 for p in self.players:
                     p.current_bet = 0
-                # Active player resets to left of dealer? Usually yes.
                 self._reset_active_player()
 
             elif self.phase == "betting_2":
@@ -363,6 +349,7 @@ class Table:
         score, rank_name = self.evaluator.evaluate_hand(new_cards)
         player.hand = Hand(cards=new_cards, rank=rank_name, score=score)
         player.last_action = "Draw"
+        player.has_acted = True
 
         self._advance_turn_drawing()
 
@@ -372,13 +359,12 @@ class Table:
 
         # Current active player has just drawn.
         # Check if everyone has drawn.
-        # We can use last_action or a flag. Let's use last_action == "Draw".
-
-        all_drawn = all(p.last_action == "Draw" for p in active_players)
+        all_drawn = all(p.has_acted for p in active_players)
 
         if all_drawn:
             self.phase = "betting_2"
             self.current_bet = 0
+            self._reset_has_acted()
             for p in self.players:
                 p.current_bet = 0
             self._reset_active_player()

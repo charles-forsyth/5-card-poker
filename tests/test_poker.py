@@ -130,8 +130,14 @@ def test_api_bet():
     me = next(p for p in data["players"] if p["id"] == "player1")
     assert me["hand"] is not None
     assert len(me["hand"]["cards"]) == 5
-    assert data["phase"] == "drawing"
+    # In refined logic, we stay in betting_1 until human acts (since bots check)
+    assert data["phase"] == "betting_1"
     assert me["balance"] == 90
+
+    # Now human checks to move to drawing
+    response = client.post("/action", json={"player_id": "player1", "action": "check"})
+    assert response.status_code == 200
+    assert response.json()["phase"] == "drawing"
 
 
 def test_api_shuffle():
@@ -181,6 +187,8 @@ def test_invalid_phase_drawing():
 def test_invalid_held_indices():
     client.post("/reset")
     client.post("/bet", json={"bet": 10})
+    # Must check to move to drawing phase
+    client.post("/action", json={"player_id": "player1", "action": "check"})
     response = client.post("/draw", json={"held_indices": [5]})
     assert response.status_code == 400
     assert "Invalid held indices" in response.json()["detail"]

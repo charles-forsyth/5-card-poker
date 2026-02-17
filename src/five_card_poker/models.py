@@ -55,6 +55,7 @@ class PlayerState(BaseModel):
     current_bet: int = 0
     last_action: str = ""
     is_active: bool = True
+    has_acted: bool = False
 
 
 class TableState(BaseModel):

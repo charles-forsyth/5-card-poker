@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "5-card-poker"
-version = "0.2.5"
+version = "0.2.6"
 description = "A 5 card poker web app with a darkmode and advanced javascript features"
 readme = "README.md"
 requires-python = ">=3.9"
