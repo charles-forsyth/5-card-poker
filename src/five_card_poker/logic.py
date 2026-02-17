@@ -1,4 +1,6 @@
 import random
+import logging
+import asyncio
 from collections import Counter
 from typing import List, Optional, TYPE_CHECKING
 from .models import Card, Suit, Rank, Hand, PlayerType, PlayerState, TableState
@@ -6,6 +8,8 @@ from .ai import GeminiPokerAgent
 
 if TYPE_CHECKING:
     from .chat import ChatManager
+
+logger = logging.getLogger(__name__)
 
 
 class GameLogic:
@@ -111,11 +115,11 @@ class GameLogic:
         if len(unique_values) == 5:
             if unique_values[-1] - unique_values[0] == 4:
                 is_straight = True
-            if set(values) == {14, 5, 4, 3, 2}:
+            elif unique_values == [2, 3, 4, 5, 14]:
                 is_straight = True
                 high_val = 5  # Wheel high card is 5
 
-        if is_flush and is_straight and set(values) == {14, 13, 12, 11, 10}:
+        if is_flush and is_straight and values == [14, 13, 12, 11, 10]:
             return 900, "Royal Flush"
         if is_flush and is_straight:
             return 800 + high_val, "Straight Flush"
@@ -183,6 +187,7 @@ class Table:
         self.dealer_idx = 0
         self.evaluator = GameLogic()  # Use existing evaluation logic
         self.chat_manager = chat_manager
+        self._lock = asyncio.Lock()
 
     def add_player(self, player: Player):
         self.players.append(player)
@@ -429,7 +434,7 @@ class Table:
                 break
         self.active_player_idx = next_idx
 
-    def process_ai_turn(self):
+    async def process_ai_turn(self):
         """
         If the current active player is an AI, use their agent to decide and execute a move.
         """
@@ -437,11 +442,14 @@ class Table:
         if current_player.type != PlayerType.AI or not current_player.agent:
             return
 
+        logger.info(
+            f"Processing AI turn for {current_player.name} in phase {self.phase}"
+        )
         table_state = self.to_state(current_player.id)
         player_state = current_player.to_state(hide_hand=False)
 
         if self.phase == "drawing":
-            held_indices = current_player.agent.decide_draw_action(
+            held_indices = await current_player.agent.decide_draw_action(
                 player_state, table_state
             )
             # Validate indices just in case
@@ -449,7 +457,7 @@ class Table:
             self.handle_draw(current_player.id, valid_indices)
 
         elif self.phase in ["betting_1", "betting_2"]:
-            action, amount = current_player.agent.decide_betting_action(
+            action, amount = await current_player.agent.decide_betting_action(
                 player_state, table_state
             )
             # Basic validation/fallback

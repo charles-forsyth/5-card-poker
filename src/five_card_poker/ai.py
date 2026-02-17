@@ -56,7 +56,7 @@ class GeminiPokerAgent:
         held = [i for i, c in enumerate(player_state.hand.cards) if counts[c.rank] >= 2]
         return held
 
-    def decide_betting_action(
+    async def decide_betting_action(
         self, player_state: PlayerState, table_state: TableState
     ) -> Tuple[str, int]:
         hand_str = self._format_hand(player_state.hand)
@@ -83,7 +83,7 @@ class GeminiPokerAgent:
         """
 
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             # Cleanup JSON block if present
             text = response.text.strip()
             if text.startswith("```json"):
@@ -97,7 +97,7 @@ class GeminiPokerAgent:
             print(f"Gemini Error: {e}")
             return self._rule_based_betting(player_state, table_state)
 
-    def decide_draw_action(
+    async def decide_draw_action(
         self, player_state: PlayerState, table_state: TableState
     ) -> List[int]:
         hand_str = self._format_hand(player_state.hand)
@@ -115,7 +115,7 @@ class GeminiPokerAgent:
         """
 
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             # Cleanup JSON block if present
             text = response.text.strip()
             if text.startswith("```json"):
@@ -129,7 +129,7 @@ class GeminiPokerAgent:
             print(f"Gemini Error: {e}")
             return self._rule_based_draw(player_state)
 
-    def decide_chat_response(
+    async def decide_chat_response(
         self,
         message: str,
         history: List[str],
@@ -159,7 +159,7 @@ class GeminiPokerAgent:
         """
 
         try:
-            response = self.model.generate_content(prompt)
+            response = await self.model.generate_content_async(prompt)
             text = response.text.strip()
             if text.startswith("```json"):
                 text = text[7:-3].strip()

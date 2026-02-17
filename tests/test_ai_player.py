@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from five_card_poker.ai import GeminiPokerAgent
 from five_card_poker.models import (
     Card,
@@ -16,6 +16,7 @@ from five_card_poker.models import (
 def mock_gemini_model():
     with patch("google.generativeai.GenerativeModel") as MockModel:
         mock_instance = MockModel.return_value
+        mock_instance.generate_content_async = AsyncMock()
         yield mock_instance
 
 
@@ -24,11 +25,12 @@ def agent(mock_gemini_model):
     return GeminiPokerAgent(api_key="fake_key")
 
 
-def test_decide_betting_action_call(agent, mock_gemini_model):
+@pytest.mark.asyncio
+async def test_decide_betting_action_call(agent, mock_gemini_model):
     # Setup mock response
-    mock_response = MagicMock()
+    mock_response = AsyncMock()
     mock_response.text = '{"action": "call", "amount": 0}'
-    mock_gemini_model.generate_content.return_value = mock_response
+    mock_gemini_model.generate_content_async.return_value = mock_response
 
     # Test context
     hand = Hand(
@@ -55,17 +57,18 @@ def test_decide_betting_action_call(agent, mock_gemini_model):
         deck_count=47,
     )
 
-    action, amount = agent.decide_betting_action(player_state, table_state)
+    action, amount = await agent.decide_betting_action(player_state, table_state)
 
     assert action == "call"
     assert amount == 0  # Amount is irrelevant for call usually, handled by logic
 
 
-def test_decide_betting_action_raise(agent, mock_gemini_model):
+@pytest.mark.asyncio
+async def test_decide_betting_action_raise(agent, mock_gemini_model):
     # Setup mock response
-    mock_response = MagicMock()
+    mock_response = AsyncMock()
     mock_response.text = '{"action": "raise", "amount": 20}'
-    mock_gemini_model.generate_content.return_value = mock_response
+    mock_gemini_model.generate_content_async.return_value = mock_response
 
     # Test context
     hand = Hand(
@@ -92,18 +95,19 @@ def test_decide_betting_action_raise(agent, mock_gemini_model):
         deck_count=47,
     )
 
-    action, amount = agent.decide_betting_action(player_state, table_state)
+    action, amount = await agent.decide_betting_action(player_state, table_state)
 
     assert action == "raise"
     assert amount == 20
 
 
-def test_decide_draw_action(agent, mock_gemini_model):
+@pytest.mark.asyncio
+async def test_decide_draw_action(agent, mock_gemini_model):
     # Setup mock response
-    mock_response = MagicMock()
+    mock_response = AsyncMock()
     # Indices 0, 1, 4 to be held
     mock_response.text = '{"held_indices": [0, 1, 4]}'
-    mock_gemini_model.generate_content.return_value = mock_response
+    mock_gemini_model.generate_content_async.return_value = mock_response
 
     # Test context
     hand = Hand(
@@ -139,6 +143,6 @@ def test_decide_draw_action(agent, mock_gemini_model):
         deck_count=47,
     )
 
-    held_indices = agent.decide_draw_action(player_state, table_state)
+    held_indices = await agent.decide_draw_action(player_state, table_state)
 
     assert held_indices == [0, 1, 4]
