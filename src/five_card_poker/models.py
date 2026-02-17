@@ -90,3 +90,8 @@ class BetRequest(BaseModel):
 class DrawRequest(BaseModel):
     held_indices: List[int]
     player_id: Optional[str] = "player1"
+
+
+class ChatRequest(BaseModel):
+    player_id: str
+    text: str
