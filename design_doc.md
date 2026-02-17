@@ -1,30 +1,41 @@
-# Design Doc: Fix Held Cards Refresh and Game State Transitions
+# Design Doc: Gemini-Powered AI Poker Players
 
-## Problem
-1. `Table.handle_draw` does not advance the game phase or turn, causing the game to hang in the "drawing" phase.
-2. `held_indices` might be misinterpreted if the turn doesn't advance.
-3. `GameLogic` legacy class has an empty deck on initialization, causing test failures.
-4. `test_poker.py` has outdated expectations for the API response format.
+## Objective
+Replace the hardcoded, simple AI in the 5-card draw poker game with intelligent agents powered by Google's **Gemini 2.5 Flash** model.
 
-## Proposed Changes
+## Architecture
 
-### 1. `src/five_card_poker/logic.py`
-- **`GameLogic.__init__`**: Call `self.shuffle()` to populate the deck.
-- **`Table.handle_draw`**: 
-    - Add phase check (`assert self.phase == "drawing"`).
-    - Add null check for `player.hand`.
-    - Advance to the next player after drawing.
-    - Transition to `betting_2` phase after all active players have drawn.
-- **`Table._advance_turn_drawing`**: New helper to manage drawing turn transitions.
+### 1. New Component: `src/five_card_poker/ai.py`
+This module will handle all interactions with the Gemini API.
 
-### 2. `src/five_card_poker/main.py`
-- Update `/draw` to automatically handle AI drawing turns until it's the human's turn again or the phase changes.
+*   **Class `GeminiPokerAgent`**:
+    *   **Responsibilities**:
+        *   Construct prompts based on current game state (hand, pot, betting history).
+        *   Call `google.generativeai` API.
+        *   Parse the JSON response to determine actions (Bet/Fold/Call/Raise, Draw cards).
+    *   **Methods**:
+        *   `decide_betting_action(self, game_context: dict) -> dict`: Returns `{"action": "raise", "amount": 20}`.
+        *   `decide_draw_action(self, game_context: dict) -> list[int]`: Returns indices of cards to hold.
 
-### 3. `tests/test_poker.py`
-- Update API tests to match the `TableState` schema (e.g., check `players[0].hand.cards` instead of top-level `cards`).
-- Adjust expected phase in `test_api_bet` if needed, or modify `Table.start_game` to skip `betting_1` if only one player is active (though we have bots, so `betting_1` is correct).
+### 2. Integration: `src/five_card_poker/logic.py`
+*   **`Player` Class**:
+    *   Add an optional `agent` attribute (type `GeminiPokerAgent`).
+*   **`Table` Class**:
+    *   Add `process_ai_turn()`: A helper method to execute the AI's logic.
+    *   Refactor `handle_action` and `handle_draw` to be more robust.
 
-## Verification Plan
-- Run `uv run pytest`.
-- Specifically check `test_drawing_round` in `tests/test_multiplayer.py`.
-- Manual verification in the UI.
+### 3. Application Logic: `src/five_card_poker/main.py`
+*   Initialize `Table` with `GeminiPokerAgent` instances for AI players.
+*   Update endpoints (`/action`, `/draw`, `/bet`) to call `table.process_ai_turns()` instead of the current hardcoded `while` loops.
+*   **Environment**: Load `GEMINI_API_KEY` from environment variables.
+
+## Prompt Engineering
+The prompt will describe the poker hand and game state in natural language.
+*   *Input*: "You are a poker pro. Hand: [Ah, Kh, Qh, Jh, 10h]. Pot: 100. Call cost: 10. Phase: Betting 1. Opponents: Player 1 (Human) checked. What is your move? Respond in JSON: {action, amount}."
+*   *Output*: JSON strict mode.
+
+## Dependencies
+*   `google-generativeai`
+
+## Testing Plan
+*   Mock `google.generativeai.GenerativeModel.generate_content` to return canned responses for testing logic without spending tokens/latency.

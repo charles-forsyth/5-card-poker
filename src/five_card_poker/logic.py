@@ -2,6 +2,7 @@ import random
 from collections import Counter
 from typing import List, Optional
 from .models import Card, Suit, Rank, Hand, PlayerType, PlayerState, TableState
+from .ai import GeminiPokerAgent
 
 
 class GameLogic:
@@ -139,6 +140,7 @@ class Player:
         name: str,
         type: PlayerType = PlayerType.HUMAN,
         balance: int = 100,
+        agent: Optional[GeminiPokerAgent] = None,
     ):
         self.id = id
         self.name = name
@@ -149,6 +151,7 @@ class Player:
         self.current_bet = 0
         self.last_action = ""
         self.is_active = True
+        self.agent = agent
 
     def to_state(self, hide_hand: bool = True) -> PlayerState:
         return PlayerState(
@@ -392,21 +395,56 @@ class Table:
                 break
         self.active_player_idx = next_idx
 
+    def process_ai_turn(self):
+        """
+        If the current active player is an AI, use their agent to decide and execute a move.
+        """
+        current_player = self.players[self.active_player_idx]
+        if current_player.type != PlayerType.AI or not current_player.agent:
+            return
+
+        table_state = self.to_state(current_player.id)
+        player_state = current_player.to_state(hide_hand=False)
+
+        if self.phase == "drawing":
+            held_indices = current_player.agent.decide_draw_action(
+                player_state, table_state
+            )
+            # Validate indices just in case
+            valid_indices = [i for i in held_indices if 0 <= i < 5]
+            self.handle_draw(current_player.id, valid_indices)
+
+        elif self.phase in ["betting_1", "betting_2"]:
+            action, amount = current_player.agent.decide_betting_action(
+                player_state, table_state
+            )
+            # Basic validation/fallback
+            if action not in ["fold", "call", "raise", "check"]:
+                action = "fold"
+
+            # If check is invalid (because current_bet > player_bet), convert to fold or call?
+            # AI logic should handle this, but let's be safe.
+            try:
+                self.handle_action(current_player.id, action, amount)
+            except ValueError:
+                # Fallback to check/fold if move was invalid
+                try:
+                    self.handle_action(current_player.id, "check")
+                except ValueError:
+                    self.handle_action(current_player.id, "fold")
+
     def ai_draw(self, player_id: str):
+        # Legacy method - kept for compatibility
         player = next((p for p in self.players if p.id == player_id), None)
         if not player or not player.hand:
             return
 
         # Very simple AI: keep pairs or better
-        # evaluator._rank_value needed?
         counts = Counter([c.rank for c in player.hand.cards])
         held = []
         for i, card in enumerate(player.hand.cards):
             if counts[card.rank] >= 2:
                 held.append(i)
-
-        # If nothing, hold high cards? Or draw all?
-        # Simple AI: hold nothing if no pair.
 
         self.handle_draw(player_id, held)
 

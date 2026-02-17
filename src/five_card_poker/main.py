@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from .logic import Table, Player, PlayerType
 from .models import ActionRequest, DrawRequest, BetRequest
+from .ai import GeminiPokerAgent
 
 app = FastAPI()
 
@@ -12,8 +13,12 @@ templates = Jinja2Templates(directory="src/five_card_poker/templates")
 
 table = Table()
 table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
-table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI))
-table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI))
+# Use different system prompts or persona via distinct agents if desired
+agent1 = GeminiPokerAgent(model_name="gemini-2.5-flash")
+agent2 = GeminiPokerAgent(model_name="gemini-2.5-flash")
+
+table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
+table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -31,29 +36,13 @@ async def take_action(request: ActionRequest):
     try:
         amount = request.amount if request.amount is not None else 0
         table.handle_action(request.player_id, request.action, amount)
+
         # Handle AI turns automatically
         while (
-            table.phase in ["betting_1", "betting_2"]
+            table.phase in ["betting_1", "betting_2", "drawing"]
             and table.players[table.active_player_idx].type == PlayerType.AI
         ):
-            player = table.players[table.active_player_idx]
-            table.handle_action(player.id, "call")
-
-        if (
-            table.phase == "drawing"
-            and table.players[table.active_player_idx].type == PlayerType.AI
-        ):
-            while (
-                table.phase == "drawing"
-                and table.players[table.active_player_idx].type == PlayerType.AI
-            ):
-                table.ai_draw(table.players[table.active_player_idx].id)
-            # If AI drawing led to betting_2, handle those too
-            while (
-                table.phase == "betting_2"
-                and table.players[table.active_player_idx].type == PlayerType.AI
-            ):
-                table.handle_action(table.players[table.active_player_idx].id, "call")
+            table.process_ai_turn()
 
         return table.to_state(request.player_id)
     except ValueError as e:
@@ -66,19 +55,12 @@ async def draw_cards(request: DrawRequest):
         player_id = request.player_id or "player1"
         table.handle_draw(player_id, request.held_indices)
 
-        # Handle AI drawing turns
+        # Handle AI turns automatically
         while (
-            table.phase == "drawing"
+            table.phase in ["betting_1", "betting_2", "drawing"]
             and table.players[table.active_player_idx].type == PlayerType.AI
         ):
-            table.ai_draw(table.players[table.active_player_idx].id)
-
-        # Handle AI betting turns if we transitioned to betting_2
-        while (
-            table.phase == "betting_2"
-            and table.players[table.active_player_idx].type == PlayerType.AI
-        ):
-            table.handle_action(table.players[table.active_player_idx].id, "call")
+            table.process_ai_turn()
 
         return table.to_state(player_id)
     except ValueError as e:
@@ -94,22 +76,10 @@ async def place_bet(request: BetRequest):
         table.start_game(ante=request.bet)
         # Handle AI turns if they are first
         while (
-            table.phase in ["betting_1", "betting_2"]
+            table.phase in ["betting_1", "betting_2", "drawing"]
             and table.players[table.active_player_idx].type == PlayerType.AI
         ):
-            player = table.players[table.active_player_idx]
-            table.handle_action(player.id, "call")
-
-        # If betting_1 finished immediately (e.g. everyone called), we might be in drawing
-        if (
-            table.phase == "drawing"
-            and table.players[table.active_player_idx].type == PlayerType.AI
-        ):
-            while (
-                table.phase == "drawing"
-                and table.players[table.active_player_idx].type == PlayerType.AI
-            ):
-                table.ai_draw(table.players[table.active_player_idx].id)
+            table.process_ai_turn()
 
         return table.to_state("player1")
     except ValueError as e:
@@ -127,6 +97,8 @@ async def reset_game():
     global table
     table = Table()
     table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
-    table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI))
-    table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI))
+    agent1 = GeminiPokerAgent(model_name="gemini-2.5-flash")
+    agent2 = GeminiPokerAgent(model_name="gemini-2.5-flash")
+    table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
+    table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
     return {"message": "Game reset"}
