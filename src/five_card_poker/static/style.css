@@ -59,6 +59,7 @@ body {
     border-radius: 8px;
     box-shadow: var(--card-shadow);
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     font-size: 2rem;
@@ -76,12 +77,63 @@ body {
     transform: translateY(-10px);
 }
 
+.card.held {
+    border: 3px solid #ffd700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+    transform: translateY(-10px);
+}
+
+.card.held::after {
+    content: "HELD";
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffd700;
+    color: #1a1a1a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+}
+
 .suit-hearts, .suit-diamonds {
     color: var(--danger-color);
 }
 
 .suit-clubs, .suit-spades {
     color: var(--text-color);
+}
+
+.info {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.stats, .current-round {
+    text-align: left;
+}
+
+.bet-controls {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.bet-controls input {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    width: 60px;
 }
 
 .btn {
