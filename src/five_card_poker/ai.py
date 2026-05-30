@@ -7,7 +7,7 @@ from .models import PlayerState, TableState, Hand
 
 class GeminiPokerAgent:
     def __init__(
-        self, api_key: Optional[str] = None, model_name: str = "gemini-2.5-pro"
+        self, api_key: Optional[str] = None, model_name: str = "gemini-3.1-pro"
     ):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         if not self.api_key:

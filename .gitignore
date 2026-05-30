@@ -150,3 +150,6 @@ cython_debug/
 .vscode/
 *.swp
 *.swo
+
+# Antigravity CLI internal directory
+.antigravitycli/

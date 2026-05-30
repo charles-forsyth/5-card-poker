@@ -198,3 +198,28 @@ def test_api_validation_error():
     # Test Pydantic validation
     response = client.post("/bet", json={"not_a_bet": 10})
     assert response.status_code == 422  # Unprocessable Entity
+
+
+def test_evaluate_hand_caching(fresh_game):
+    cards = [
+        Card(suit=Suit.HEARTS, rank=Rank.TEN),
+        Card(suit=Suit.HEARTS, rank=Rank.JACK),
+        Card(suit=Suit.HEARTS, rank=Rank.QUEEN),
+        Card(suit=Suit.HEARTS, rank=Rank.KING),
+        Card(suit=Suit.HEARTS, rank=Rank.ACE),
+    ]
+    # Clear cache first to make test deterministic
+    fresh_game._eval_cache.clear()
+
+    # First evaluation (calculates and stores in cache)
+    score1, rank1 = fresh_game.evaluate_hand(cards)
+
+    # Construct cache key
+    cards_key = tuple(sorted([(c.rank.value, c.suit.value) for c in cards]))
+    assert cards_key in fresh_game._eval_cache
+    assert fresh_game._eval_cache[cards_key] == (score1, rank1)
+
+    # Second evaluation (should retrieve from cache)
+    score2, rank2 = fresh_game.evaluate_hand(cards)
+    assert score2 == score1
+    assert rank2 == rank1

@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let heldIndices = [];
     let currentPhase = 'waiting';
     let playerId = 'player1';
+    let lastCardsJson = '';
+    let lastOpponentsJson = '';
 
     // Theme toggle
     themeToggle.addEventListener('click', () => {
@@ -56,13 +58,26 @@ document.addEventListener('DOMContentLoaded', () => {
             heldIndices = [];
         }
 
-        renderOpponents(opponents, data.active_player_id);
+        // Cache opponents to prevent flickering
+        const opponentsJson = JSON.stringify(opponents) + "|" + data.active_player_id;
+        if (opponentsJson !== lastOpponentsJson) {
+            renderOpponents(opponents, data.active_player_id);
+            lastOpponentsJson = opponentsJson;
+        }
         
         if (me.hand) {
-            renderHand(me.hand.cards);
+            // Cache hand state to prevent input disruption and flickering
+            const cardsJson = JSON.stringify(me.hand.cards);
+            if (cardsJson !== lastCardsJson) {
+                renderHand(me.hand.cards);
+                lastCardsJson = cardsJson;
+            }
             handRankElement.textContent = `Hand: ${me.hand.rank}`;
         } else {
-            cardsContainer.innerHTML = '<div class="card back"></div>'.repeat(5);
+            if (lastCardsJson !== 'none') {
+                cardsContainer.innerHTML = '<div class="card back"></div>'.repeat(5);
+                lastCardsJson = 'none';
+            }
             handRankElement.textContent = 'Hand: Waiting...';
         }
 
@@ -334,7 +349,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendChatMessage();
     });
 
-    // Poll for chat
-    setInterval(fetchChatMessages, 2000);
+    // Poll for chat and game state updates to sync asynchronous AI turns and showdowns
+    setInterval(async () => {
+        await fetchChatMessages();
+        await fetchState();
+    }, 2000);
     fetchChatMessages(); // Initial fetch
 });
