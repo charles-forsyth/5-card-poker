@@ -94,9 +94,16 @@ class GameLogic:
         }
         return mapping[rank]
 
+    _eval_cache: dict[tuple[tuple[str, str], ...], tuple[int, str]] = {}
+
     def evaluate_hand(self, cards: list[Card]) -> tuple[int, str]:
         if len(cards) != 5:
             return 0, "Invalid Hand"
+
+        # Create a stable, sorted representation of cards for the cache key
+        cards_key = tuple(sorted([(c.rank.value, c.suit.value) for c in cards]))
+        if cards_key in self._eval_cache:
+            return self._eval_cache[cards_key]
 
         values = sorted([self._rank_value(c.rank) for c in cards], reverse=True)
         suits = [c.suit for c in cards]
@@ -116,24 +123,28 @@ class GameLogic:
                 high_val = 5  # Wheel high card is 5
 
         if is_flush and is_straight and set(values) == {14, 13, 12, 11, 10}:
-            return 900, "Royal Flush"
-        if is_flush and is_straight:
-            return 800 + high_val, "Straight Flush"
-        if sorted_counts[0][1] == 4:
-            return 700 + sorted_counts[0][0], "Four of a Kind"
-        if sorted_counts[0][1] == 3 and sorted_counts[1][1] == 2:
-            return 600 + sorted_counts[0][0], "Full House"
-        if is_flush:
-            return 500 + high_val, "Flush"
-        if is_straight:
-            return 400 + high_val, "Straight"
-        if sorted_counts[0][1] == 3:
-            return 300 + sorted_counts[0][0], "Three of a Kind"
-        if sorted_counts[0][1] == 2 and sorted_counts[1][1] == 2:
-            return 200 + max(sorted_counts[0][0], sorted_counts[1][0]), "Two Pair"
-        if sorted_counts[0][1] == 2:
-            return 100 + sorted_counts[0][0], "One Pair"
-        return high_val, "High Card"
+            res = (900, "Royal Flush")
+        elif is_flush and is_straight:
+            res = (800 + high_val, "Straight Flush")
+        elif sorted_counts[0][1] == 4:
+            res = (700 + sorted_counts[0][0], "Four of a Kind")
+        elif sorted_counts[0][1] == 3 and sorted_counts[1][1] == 2:
+            res = (600 + sorted_counts[0][0], "Full House")
+        elif is_flush:
+            res = (500 + high_val, "Flush")
+        elif is_straight:
+            res = (400 + high_val, "Straight")
+        elif sorted_counts[0][1] == 3:
+            res = (300 + sorted_counts[0][0], "Three of a Kind")
+        elif sorted_counts[0][1] == 2 and sorted_counts[1][1] == 2:
+            res = (200 + max(sorted_counts[0][0], sorted_counts[1][0]), "Two Pair")
+        elif sorted_counts[0][1] == 2:
+            res = (100 + sorted_counts[0][0], "One Pair")
+        else:
+            res = (high_val, "High Card")
+
+        self._eval_cache[cards_key] = res
+        return res
 
 
 class Player:

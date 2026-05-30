@@ -23,8 +23,8 @@ chat_manager = ChatManager()
 table = Table(chat_manager=chat_manager)
 table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
 # Use different system prompts or persona via distinct agents if desired
-agent1 = GeminiPokerAgent(model_name="gemini-2.5-pro")
-agent2 = GeminiPokerAgent(model_name="gemini-2.5-pro")
+agent1 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+agent2 = GeminiPokerAgent(model_name="gemini-3.1-pro")
 
 table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
 table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
@@ -107,8 +107,8 @@ async def reset_game():
     chat_manager = ChatManager()
     table = Table(chat_manager=chat_manager)
     table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
-    agent1 = GeminiPokerAgent(model_name="gemini-2.5-pro")
-    agent2 = GeminiPokerAgent(model_name="gemini-2.5-pro")
+    agent1 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+    agent2 = GeminiPokerAgent(model_name="gemini-3.1-pro")
     table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
     table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
     return {"message": "Game reset"}
