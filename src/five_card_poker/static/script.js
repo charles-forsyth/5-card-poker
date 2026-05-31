@@ -1,6 +1,349 @@
+// 🔮 Witching Hour Poker 🔮
+// Client-Side Game Loop, Dynamic 6-Player Seating, and Web Audio API Synthesis
+
+/**
+ * SoundSynth
+ * Web Audio API synthesizer for dependency-free, high-fidelity magical sound effects.
+ */
+class SoundSynth {
+    constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.muted = false;
+        this.volume = 0.5; // Default 50%
+        this.bubbleTimer = null;
+    }
+
+    /**
+     * Initializes the AudioContext lazily on user interaction
+     */
+    init() {
+        if (this.ctx) return;
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContextClass();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
+            
+            // Start continuous gentle bubbling of cauldron!
+            this.startBubbling();
+        } catch (e) {
+            console.error("Web Audio API not supported in this browser:", e);
+        }
+    }
+
+    resume() {
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    setVolume(vol) {
+        this.volume = vol;
+        if (this.masterGain && !this.muted) {
+            this.masterGain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        }
+    }
+
+    toggleMute() {
+        this.muted = !this.muted;
+        if (this.masterGain) {
+            this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
+        }
+        return this.muted;
+    }
+
+    /**
+     * SFX 1: Card Deal / Rustle
+     * Synthesizes the sliding flip of a parchment card.
+     */
+    playDeal() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+
+        // 1. Friction white noise
+        const bufferSize = this.ctx.sampleRate * 0.12; // 120ms
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+
+        const noiseNode = this.ctx.createBufferSource();
+        noiseNode.buffer = buffer;
+
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(1000, now);
+        noiseFilter.frequency.exponentialRampToValueAtTime(1600, now + 0.1);
+        noiseFilter.Q.setValueAtTime(8, now);
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.06, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        // 2. Tonal flip sound
+        const osc = this.ctx.createOscillator();
+        const oscGain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(750, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+
+        oscGain.gain.setValueAtTime(0.12, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        // Wiring
+        noiseNode.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.masterGain);
+
+        noiseNode.start(now);
+        noiseNode.stop(now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.08);
+    }
+
+    /**
+     * SFX 2: Spell Swell (Raise / Active Action)
+     * Synthesizes a magic energy build-up.
+     */
+    playSpell() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+        const duration = 0.55;
+
+        const osc = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gainNode = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.exponentialRampToValueAtTime(420, now + duration);
+
+        filter.type = 'lowpass';
+        filter.Q.setValueAtTime(12, now);
+        filter.frequency.setValueAtTime(200, now);
+        filter.frequency.exponentialRampToValueAtTime(1600, now + duration);
+
+        gainNode.gain.setValueAtTime(0.001, now);
+        gainNode.gain.linearRampToValueAtTime(0.12, now + duration * 0.4);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + duration);
+    }
+
+    /**
+     * SFX 3: Magical Chimes
+     * Cascading, glistening wind chimes of high pentatonic registers.
+     */
+    playChimes() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+        const freqs = [880, 987.77, 1174.66, 1318.51, 1567.98, 1760, 2093];
+
+        freqs.forEach((freq, index) => {
+            const delay = index * 0.07;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + delay);
+
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(600, now + delay);
+
+            gain.gain.setValueAtTime(0.001, now + delay);
+            gain.gain.linearRampToValueAtTime(0.05, now + delay + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.6);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(now + delay);
+            osc.stop(now + delay + 0.7);
+        });
+    }
+
+    /**
+     * SFX 4: Bubble Pop
+     * Low pitch bubble expansion and pop.
+     */
+    playBubble() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        const baseFreq = 65 + Math.random() * 45;
+        const endFreq = 230 + Math.random() * 70;
+        const duration = 0.09 + Math.random() * 0.11;
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + duration);
+    }
+
+    /**
+     * SFX 5: Double Wood Knock (Check)
+     */
+    playKnock() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+
+        [0, 0.13].forEach(delay => {
+            const osc = this.ctx.createOscillator();
+            const filter = this.ctx.createBiquadFilter();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(115, now + delay);
+            osc.frequency.exponentialRampToValueAtTime(40, now + delay + 0.04);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(240, now + delay);
+
+            gain.gain.setValueAtTime(0.18, now + delay);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.05);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(now + delay);
+            osc.stop(now + delay + 0.06);
+        });
+    }
+
+    /**
+     * SFX 6: Victory arpeggio
+     */
+    playVictory() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+        const chord = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+
+        chord.forEach((freq, index) => {
+            const delay = index * 0.09;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + delay);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1400, now + delay);
+
+            gain.gain.setValueAtTime(0.001, now + delay);
+            gain.gain.linearRampToValueAtTime(0.07, now + delay + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 1.1);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(now + delay);
+            osc.stop(now + delay + 1.3);
+        });
+    }
+
+    /**
+     * SFX 7: Fold / Ash Burn
+     */
+    playBurn() {
+        this.init();
+        this.resume();
+        if (!this.ctx || this.muted) return;
+
+        const now = this.ctx.currentTime;
+        const duration = 0.42;
+
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(850, now);
+        filter.frequency.linearRampToValueAtTime(120, now + duration);
+        filter.Q.setValueAtTime(6, now);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        source.start(now);
+        source.stop(now + duration);
+    }
+
+    startBubbling() {
+        if (this.bubbleTimer) clearInterval(this.bubbleTimer);
+        // Periodically trigger ambient cauldron bubbling
+        this.bubbleTimer = setInterval(() => {
+            if (!this.muted && this.ctx && this.ctx.state === 'running') {
+                const count = Math.floor(Math.random() * 3) + 1;
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => this.playBubble(), Math.random() * 500);
+                }
+            }
+        }, 2200);
+    }
+}
+
+
+// --- Main Application Orchestration ---
 document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
     const cardsContainer = document.getElementById('cards');
-    const opponentsContainer = document.getElementById('opponents');
+    const playerSeatsContainer = document.getElementById('player-seats');
     const handRankElement = document.getElementById('hand-rank');
     const balanceElement = document.getElementById('balance');
     const potAmountElement = document.getElementById('pot-amount');
@@ -15,32 +358,91 @@ document.addEventListener('DOMContentLoaded', () => {
     const raiseBtn = document.getElementById('raise-btn');
     const shuffleBtn = document.getElementById('shuffle-btn');
     const resetBtn = document.getElementById('reset-btn');
+    
     const themeToggle = document.getElementById('theme-toggle');
+    const soundToggle = document.getElementById('sound-toggle');
+    const soundIcon = document.getElementById('sound-icon');
+    const volumeSlider = document.getElementById('volume-slider');
     
     const body = document.body;
 
+    // Instantiations & State
+    const audio = new SoundSynth();
     let heldIndices = [];
     let currentPhase = 'waiting';
     let playerId = 'player1';
     let lastCardsJson = '';
     let lastOpponentsJson = '';
+    
+    // Message mapping and state trackers
+    const processedMsgIds = new Set();
+    let isInitialChatLoadDone = false;
 
-    // Theme toggle
-    themeToggle.addEventListener('click', () => {
-        body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+    const botNameMap = {
+        'player1': 'You',
+        'bot1': 'Rhiannon',
+        'bot2': 'Althea',
+        'bot3': 'Zephyr',
+        'bot4': 'Madrigal',
+        'bot5': 'Morrigan',
+        'system': 'Coven Sentinel'
+    };
+
+    // Unlock Web Audio Context on document interactions (browser policy bypass)
+    ['click', 'mousedown', 'keydown', 'touchstart'].forEach(event => {
+        document.body.addEventListener(event, () => {
+            audio.init();
+            audio.resume();
+        }, { once: true });
     });
 
-    // Initialize state
+    // Theme Toggle (Moonlight vs Witchy Night)
+    themeToggle.addEventListener('click', () => {
+        body.classList.toggle('light-mode');
+        const isMoonlight = body.classList.contains('light-mode');
+        themeToggle.innerHTML = isMoonlight ? '<i class="fas fa-sun"></i> Witchy Night' : '<i class="fas fa-moon"></i> Moonlight';
+        localStorage.setItem('theme', isMoonlight ? 'moonlight' : 'witchy');
+    });
+
+    // Initialize saved theme
+    if (localStorage.getItem('theme') === 'moonlight') {
+        body.classList.add('light-mode');
+        themeToggle.innerHTML = '<i class="fas fa-sun"></i> Witchy Night';
+    }
+
+    // Sound Slider and Mute Buttons
+    soundToggle.addEventListener('click', () => {
+        audio.init();
+        audio.resume();
+        const isMuted = audio.toggleMute();
+        soundIcon.className = isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+        soundToggle.title = isMuted ? 'Unmute Soundscape' : 'Mute Soundscape';
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+        audio.init();
+        audio.resume();
+        const vol = parseInt(e.target.value) / 100;
+        audio.setVolume(vol);
+        if (audio.muted && vol > 0) {
+            audio.toggleMute();
+            soundIcon.className = 'fas fa-volume-up';
+        }
+    });
+
+    // Run first state fetches
     fetchState();
+    fetchChatMessages();
 
     async function fetchState() {
         try {
             const response = await fetch(`/state?player_id=${playerId}`);
-            const data = await response.json();
-            updateUI(data);
+            if (response.ok) {
+                const data = await response.json();
+                updateUI(data);
+            }
         } catch (error) {
-            console.error('Error fetching state:', error);
+            console.error('Error fetching table state:', error);
         }
     }
 
@@ -48,42 +450,61 @@ document.addEventListener('DOMContentLoaded', () => {
         const me = data.players.find(p => p.id === playerId);
         const opponents = data.players.filter(p => p.id !== playerId);
 
-        balanceElement.textContent = `Balance: $${me.balance}`;
+        // Update Grimoire metrics
+        balanceElement.innerHTML = `<span>💎 Crystals:</span> <span class="val">$${me.balance}</span>`;
         potAmountElement.textContent = `$${data.pot}`;
-        phaseDisplay.textContent = `Phase: ${formatPhase(data.phase)}`;
+        phaseDisplay.innerHTML = `<span>🌒 Moon Phase:</span> <span class="val">${formatPhase(data.phase)}</span>`;
         currentPhase = data.phase;
 
-        // CRITICAL BUG FIX: Reset heldIndices if not in drawing phase
+        // Turn announcements
+        const isMyTurn = data.active_player_id === playerId;
+        const playerActionDisplay = document.getElementById('player-action-display');
+        if (isMyTurn) {
+            playerActionDisplay.textContent = '🔮 YOUR TURN TO CAST';
+            playerActionDisplay.style.color = '#39ff14'; // Radiant Emerald
+        } else {
+            const activePlayer = data.players.find(p => p.id === data.active_player_id);
+            playerActionDisplay.textContent = activePlayer ? `🕯️ ${activePlayer.name.toUpperCase()} RECITING` : '🌙 WAITING';
+            playerActionDisplay.style.color = 'var(--antique-gold)';
+        }
+
+        // Reset cards held list if drawing phase completes
         if (currentPhase !== 'drawing') {
             heldIndices = [];
         }
 
-        // Cache opponents to prevent flickering
+        // Cache opponents to prevent grid flickering
         const opponentsJson = JSON.stringify(opponents) + "|" + data.active_player_id;
         if (opponentsJson !== lastOpponentsJson) {
             renderOpponents(opponents, data.active_player_id);
             lastOpponentsJson = opponentsJson;
         }
         
+        // Render 3D player grimoire cards
         if (me.hand) {
-            // Cache hand state to prevent input disruption and flickering
             const cardsJson = JSON.stringify(me.hand.cards);
             if (cardsJson !== lastCardsJson) {
                 renderHand(me.hand.cards);
                 lastCardsJson = cardsJson;
             }
-            handRankElement.textContent = `Hand: ${me.hand.rank}`;
+            handRankElement.innerHTML = `<span>🔮 Hand Combo:</span> <span class="val">${me.hand.rank}</span>`;
         } else {
             if (lastCardsJson !== 'none') {
-                cardsContainer.innerHTML = '<div class="card back"></div>'.repeat(5);
+                // Deal empty grimoire layout (5 card back overlays with staggered deals)
+                cardsContainer.innerHTML = Array(5).fill(0).map((_, i) => `
+                    <div class="card back" style="animation-delay: ${i * 0.08}s;">
+                        <div class="card-inner" style="transform: rotateY(180deg);">
+                            <div class="card-front"></div>
+                            <div class="card-back"></div>
+                        </div>
+                    </div>
+                `).join('');
                 lastCardsJson = 'none';
             }
-            handRankElement.textContent = 'Hand: Waiting...';
+            handRankElement.innerHTML = '<span>🔮 Hand Combo:</span> <span class="val">Waiting...</span>';
         }
 
-        // Action visibility
-        const isMyTurn = data.active_player_id === playerId;
-        
+        // Toggle action items based on game loop phases
         if (currentPhase === 'waiting') {
             dealBtn.style.display = 'inline-block';
             bettingActions.style.display = 'none';
@@ -100,9 +521,9 @@ document.addEventListener('DOMContentLoaded', () => {
             drawBtn.style.display = 'none';
             document.getElementById('bet-input-container').style.display = 'block';
             
-            // Update Call button text
+            // Re-label active call/check options in witchy style
             const callAmount = data.current_bet - me.current_bet;
-            callBtn.textContent = callAmount > 0 ? `Call $${callAmount}` : 'Check';
+            callBtn.textContent = callAmount > 0 ? `🍵 Drink Cauldron ($${callAmount})` : '🍵 Peer Cauldron (Check)';
         }
     }
 
@@ -110,43 +531,66 @@ document.addEventListener('DOMContentLoaded', () => {
         return phase.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     }
 
+    /**
+     * Renders opponents in circular layouts with custom seating classes (seat-bot1, etc.)
+     */
     function renderOpponents(opponents, activePlayerId) {
-        opponentsContainer.innerHTML = '';
+        playerSeatsContainer.innerHTML = '';
         opponents.forEach(opp => {
             const div = document.createElement('div');
-            div.className = `opponent ${opp.id === activePlayerId ? 'active' : ''}`;
+            div.className = `opponent seat-${opp.id} ${opp.id === activePlayerId ? 'active' : ''}`;
             
             let cardHtml = '';
             if (opp.hand) {
-                // If showdown, show cards
+                // If showdown, expose cards
                 opp.hand.cards.forEach(c => {
-                   cardHtml += `<div class="card-tiny suit-${c.suit.toLowerCase()}"></div>`;
+                   cardHtml += `<div class="card-tiny suit-${c.suit.toLowerCase()}">${c.rank}${getSuitSymbol(c.suit)}</div>`;
                 });
-            } else {
+            } else if (!opp.is_folded && currentPhase !== 'waiting') {
+                // Display 5 elegant runic backs for bots actively in hand
                 cardHtml = '<div class="card-tiny"></div>'.repeat(5);
             }
 
+            let actionText = opp.last_action || 'Contemplating...';
+            if (opp.is_folded) {
+                actionText = '🍂 Folded';
+                div.style.opacity = '0.55';
+            } else {
+                div.style.opacity = '1';
+            }
+
             div.innerHTML = `
-                <span class="name">${opp.name}</span>
+                <span class="name">🔮 ${opp.name}</span>
                 <div class="opponent-cards">${cardHtml}</div>
-                <span class="balance">$${opp.balance}</span>
-                <span class="action">${opp.last_action}</span>
+                <span class="balance">💎 $${opp.balance}</span>
+                <span class="action">${actionText}</span>
             `;
-            opponentsContainer.appendChild(div);
+            playerSeatsContainer.appendChild(div);
         });
     }
 
+    /**
+     * Renders 3D Grimoire Hand cards
+     */
     function renderHand(cards) {
         cardsContainer.innerHTML = '';
         cards.forEach((cardData, index) => {
             const card = document.createElement('div');
             card.className = `card suit-${cardData.suit.toLowerCase()} ${heldIndices.includes(index) ? 'held' : ''}`;
-            
+            card.style.animationDelay = `${index * 0.08}s`; // Micro-animation dealt sequentially
+
             card.innerHTML = `
-                <div class="card-rank">${cardData.rank}</div>
-                <div class="card-suit">${getSuitSymbol(cardData.suit)}</div>
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="card-rank-top">${cardData.rank}</div>
+                        <div class="card-suit-center">${getSuitSymbol(cardData.suit)}</div>
+                        <div class="card-rank-bottom">${cardData.rank}</div>
+                    </div>
+                    <div class="card-back"></div>
+                </div>
             `;
 
+            // Toggle card selection in transmutation draw phase
             card.addEventListener('click', () => {
                 if (currentPhase === 'drawing') {
                     toggleHold(index, card);
@@ -161,14 +605,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (heldIndices.includes(index)) {
             heldIndices = heldIndices.filter(i => i !== index);
             cardElement.classList.remove('held');
+            audio.playDeal(); // Soft select snap
         } else {
             heldIndices.push(index);
             cardElement.classList.add('held');
+            audio.playChimes(); // Glistening highlight chime!
         }
     }
 
-    // Actions
+    // --- Action bindings ---
     dealBtn.addEventListener('click', async () => {
+        audio.init();
+        audio.resume();
         try {
             const bet = parseInt(betAmountInput.value);
             const response = await fetch('/bet', {
@@ -178,17 +626,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) {
                 const error = await response.json();
-                alert(error.detail || 'Failed to deal');
+                alert(error.detail || 'The ritual ante could not be offered.');
                 return;
             }
+            audio.playChimes();
             updateUI(await response.json());
         } catch (error) {
-            console.error('Error dealing:', error);
-            alert('Connection error');
+            console.error('Error starting game:', error);
         }
     });
 
     callBtn.addEventListener('click', async () => {
+        audio.playBubble();
         try {
             const response = await fetch('/action', {
                 method: 'POST',
@@ -197,11 +646,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             updateUI(await response.json());
         } catch (error) {
-            console.error('Error calling:', error);
+            console.error('Error in call action:', error);
         }
     });
 
     raiseBtn.addEventListener('click', async () => {
+        audio.playSpell();
         try {
             const amount = parseInt(betAmountInput.value);
             const response = await fetch('/action', {
@@ -211,16 +661,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) {
                 const error = await response.json();
-                alert(error.detail || 'Failed to raise');
+                alert(error.detail || 'Could not raise');
                 return;
             }
             updateUI(await response.json());
         } catch (error) {
-            console.error('Error raising:', error);
+            console.error('Error raising action:', error);
         }
     });
 
     foldBtn.addEventListener('click', async () => {
+        audio.playBurn();
         try {
             const response = await fetch('/action', {
                 method: 'POST',
@@ -234,6 +685,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     drawBtn.addEventListener('click', async () => {
+        audio.playChimes();
         try {
             const response = await fetch('/draw', {
                 method: 'POST',
@@ -242,18 +694,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             updateUI(await response.json());
         } catch (error) {
-            console.error('Error drawing:', error);
+            console.error('Error drawing cards:', error);
         }
     });
 
     shuffleBtn.addEventListener('click', async () => {
+        audio.playChimes();
         await fetch('/shuffle', { method: 'POST' });
-        alert('Deck shuffled!');
+        alert('Grimoire shuffled!');
         fetchState();
     });
 
     resetBtn.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to reset the entire game? All progress will be lost.')) {
+        audio.playBurn();
+        if (confirm('Extinguish the ritual hearth? Progress across the entire coven session will dissolve.')) {
             await fetch('/reset', { method: 'POST' });
             fetchState();
             fetchChatMessages();
@@ -270,11 +724,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Chat Logic ---
+
+    // --- Real-Time Chat & Automated Sound Catcher ---
     const chatMessagesDiv = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
-    let lastMessageTimestamp = 0;
 
     async function fetchChatMessages() {
         try {
@@ -284,45 +738,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderChatMessages(messages);
             }
         } catch (error) {
-            console.error('Error fetching chat:', error);
+            console.error('Error whispering with coven:', error);
         }
     }
 
     function renderChatMessages(messages) {
-        let shouldScroll = false;
-        
-        // Only append new messages (simple check via length or content, 
-        // but for now we clear and re-render or check against last rendered count?
-        // Actually, re-rendering all is easiest for now, but not efficient.
-        // Let's just clear and re-render.
-        // To avoid flicker, we could diff, but let's keep it simple.
-        
         const wasAtBottom = chatMessagesDiv.scrollHeight - chatMessagesDiv.scrollTop === chatMessagesDiv.clientHeight;
-        
         chatMessagesDiv.innerHTML = '';
         
         messages.forEach(msg => {
             const div = document.createElement('div');
             div.classList.add('chat-msg');
             
+            // Extract display names
+            const displayName = botNameMap[msg.player_id] || msg.player_id;
+            
             if (msg.player_id === 'system') {
                 div.classList.add('system');
                 div.textContent = msg.text;
             } else if (msg.player_id === playerId) {
                 div.classList.add('me');
-                div.textContent = msg.text; // Text only for me
+                div.textContent = msg.text;
             } else {
                 div.classList.add('other');
-                // Maybe prepend name if we knew it? 
-                // For now, assume player_id is descriptive enough or just show text
-                // Ideally, we'd map ID to Name.
-                div.textContent = `${msg.player_id}: ${msg.text}`;
+                div.textContent = `${displayName}: ${msg.text}`;
             }
             
             chatMessagesDiv.appendChild(div);
+
+            // Automated Sound FX Trigger:
+            // Intercept messages logged to play exact audio synthesis dynamically!
+            if (!processedMsgIds.has(msg.id)) {
+                processedMsgIds.add(msg.id);
+                
+                // Do not sound off messages compiled before player loaded the screen
+                if (isInitialChatLoadDone) {
+                    if (msg.player_id === 'system') {
+                        const txt = msg.text.toLowerCase();
+                        if (txt.includes('folds.')) {
+                            audio.playBurn();
+                        } else if (txt.includes('calls.')) {
+                            audio.playBubble();
+                        } else if (txt.includes('raises to') || txt.includes('raises')) {
+                            audio.playSpell();
+                        } else if (txt.includes('checks.')) {
+                            audio.playKnock();
+                        } else if (txt.includes('wins ')) {
+                            audio.playVictory();
+                        } else if (txt.includes('started.') || txt.includes('shuffled.')) {
+                            audio.playChimes();
+                        } else if (txt.includes("'s turn.")) {
+                            audio.playDeal(); // Soft card tick on turns
+                        }
+                    } else if (msg.player_id !== 'player1') {
+                        // Ambient soft bubble pop whenever bots converse!
+                        audio.playBubble();
+                    }
+                }
+            }
         });
 
-        if (wasAtBottom) {
+        // Toggle load gate once the historical chats populate
+        isInitialChatLoadDone = true;
+
+        if (wasAtBottom || chatMessagesDiv.scrollTop === 0) {
             chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
         }
     }
@@ -338,9 +817,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ player_id: playerId, text: text })
             });
             chatInput.value = '';
-            fetchChatMessages(); // Update immediately
+            fetchChatMessages();
         } catch (error) {
-            console.error('Error sending chat:', error);
+            console.error('Error sending whisper:', error);
         }
     }
 
@@ -349,10 +828,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') sendChatMessage();
     });
 
-    // Poll for chat and game state updates to sync asynchronous AI turns and showdowns
+    // Synchronized Polling
     setInterval(async () => {
         await fetchChatMessages();
         await fetchState();
     }, 2000);
-    fetchChatMessages(); // Initial fetch
 });

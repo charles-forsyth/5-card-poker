@@ -22,12 +22,19 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 chat_manager = ChatManager()
 table = Table(chat_manager=chat_manager)
 table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
-# Use different system prompts or persona via distinct agents if desired
+
+# Initialize 5 distinct agents for our witchy bots
 agent1 = GeminiPokerAgent(model_name="gemini-3.1-pro")
 agent2 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+agent3 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+agent4 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+agent5 = GeminiPokerAgent(model_name="gemini-3.1-pro")
 
-table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
-table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
+table.add_player(Player(id="bot1", name="Rhiannon", type=PlayerType.AI, agent=agent1))
+table.add_player(Player(id="bot2", name="Althea", type=PlayerType.AI, agent=agent2))
+table.add_player(Player(id="bot3", name="Zephyr", type=PlayerType.AI, agent=agent3))
+table.add_player(Player(id="bot4", name="Madrigal", type=PlayerType.AI, agent=agent4))
+table.add_player(Player(id="bot5", name="Morrigan", type=PlayerType.AI, agent=agent5))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -107,10 +114,24 @@ async def reset_game():
     chat_manager = ChatManager()
     table = Table(chat_manager=chat_manager)
     table.add_player(Player(id="player1", name="You", type=PlayerType.HUMAN))
+
     agent1 = GeminiPokerAgent(model_name="gemini-3.1-pro")
     agent2 = GeminiPokerAgent(model_name="gemini-3.1-pro")
-    table.add_player(Player(id="bot1", name="Bot 1", type=PlayerType.AI, agent=agent1))
-    table.add_player(Player(id="bot2", name="Bot 2", type=PlayerType.AI, agent=agent2))
+    agent3 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+    agent4 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+    agent5 = GeminiPokerAgent(model_name="gemini-3.1-pro")
+
+    table.add_player(
+        Player(id="bot1", name="Rhiannon", type=PlayerType.AI, agent=agent1)
+    )
+    table.add_player(Player(id="bot2", name="Althea", type=PlayerType.AI, agent=agent2))
+    table.add_player(Player(id="bot3", name="Zephyr", type=PlayerType.AI, agent=agent3))
+    table.add_player(
+        Player(id="bot4", name="Madrigal", type=PlayerType.AI, agent=agent4)
+    )
+    table.add_player(
+        Player(id="bot5", name="Morrigan", type=PlayerType.AI, agent=agent5)
+    )
     return {"message": "Game reset"}
 
 

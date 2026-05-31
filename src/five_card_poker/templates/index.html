@@ -3,78 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>5 Card Draw Poker</title>
+    <title>🔮 Witching Hour Poker 🔮</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Macondo&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
-<body class="dark-mode">
+<body class="dark-mode witchy-theme">
+    <!-- Magical Fog Layer -->
+    <div class="mystical-fog"></div>
+    <div class="mystical-glow"></div>
+
     <div class="container">
-        <h1>5 Card Draw Poker</h1>
-        <div class="controls">
-            <button id="theme-toggle">Toggle Light/Dark Mode</button>
-        </div>
-        
-        <div class="poker-table">
-            <div id="opponents" class="opponents-container">
-                <!-- Opponents will be injected here -->
-            </div>
+        <header class="witchy-header">
+            <h1 class="mystical-title">🔮 Witching Hour Poker 🔮</h1>
             
-            <div class="pot-area">
-                <div class="pot-display">
-                    <span id="pot-amount">$0</span>
-                    <span class="label">POT</span>
+            <div class="sound-controls">
+                <button id="sound-toggle" class="icon-btn" title="Toggle Magical Chimes">
+                    <i id="sound-icon" class="fas fa-volume-up"></i>
+                </button>
+                <div class="volume-slider-container">
+                    <i class="fas fa-volume-down volume-label"></i>
+                    <input type="range" id="volume-slider" min="0" max="100" value="50" class="witchy-slider">
+                    <i class="fas fa-volume-up volume-label"></i>
                 </div>
+                <button id="theme-toggle" class="btn text-btn"><i class="fas fa-moon"></i> Moonlight</button>
             </div>
-
-            <div class="player-area">
-                <div id="cards" class="cards-container">
-                    <!-- Player's cards will be injected here -->
+        </header>
+        
+        <div class="poker-table-outer">
+            <div class="poker-table">
+                <!-- Inner Felt Grid -->
+                <div class="table-felt"></div>
+                
+                <!-- Circular Seating Layout for 6 Players -->
+                <div id="player-seats" class="seating-grid">
+                    <!-- Seats for Bot 2, Bot 3, Bot 4, Bot 5, Bot 1 and User will be dynamically positioned and handled -->
                 </div>
-                <div class="player-status">
-                    <span id="player-action-display"></span>
+                
+                <!-- Central Altar / Cauldron Pot Area -->
+                <div class="central-altar">
+                    <div class="cauldron-container">
+                        <div class="cauldron-liquid">
+                            <div class="bubbles">
+                                <span style="--i:11;"></span>
+                                <span style="--i:12;"></span>
+                                <span style="--i:24;"></span>
+                                <span style="--i:10;"></span>
+                                <span style="--i:14;"></span>
+                                <span style="--i:23;"></span>
+                                <span style="--i:18;"></span>
+                                <span style="--i:16;"></span>
+                                <span style="--i:19;"></span>
+                                <span style="--i:20;"></span>
+                            </div>
+                        </div>
+                        <div class="cauldron-rim"></div>
+                    </div>
+                    
+                    <div class="pot-display">
+                        <span class="label">SACRIFICED CHIPS</span>
+                        <span id="pot-amount" class="glow-text">$0</span>
+                    </div>
+                </div>
+
+                <!-- Your Magical Hand area (Seated at Bottom Center) -->
+                <div class="player-area human-seat">
+                    <div class="player-ritual-banner">
+                        <span class="seat-badge human-badge">🌙 Your Grimoire</span>
+                        <div class="player-status-bubble">
+                            <span id="player-action-display">YOUR TURN</span>
+                        </div>
+                    </div>
+                    <div id="cards" class="cards-container">
+                        <!-- Player's cards will be injected here with beautiful mystical runic borders -->
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- Mystical Info and Settings Bar -->
         <div class="game-info">
-            <div class="stats">
-                <p id="balance">Balance: $100</p>
-                <p id="deck-count"></p>
+            <div class="stats panel-glass">
+                <h3 class="panel-title">🌙 Spellcaster Stats</h3>
+                <p id="balance" class="stat-row"><span>Crystals:</span> <span class="val">$100</span></p>
+                <p id="deck-count" class="stat-row"><span>Deck Count:</span> <span class="val">52 Cards</span></p>
             </div>
-            <div class="hand-info">
-                <p id="hand-rank">Hand: Waiting to Deal</p>
-                <p id="phase-display">Phase: Waiting</p>
+            <div class="hand-info panel-glass">
+                <h3 class="panel-title">🔮 Active Ritual</h3>
+                <p id="hand-rank" class="stat-row"><span>Hand Combo:</span> <span class="val">Waiting...</span></p>
+                <p id="phase-display" class="stat-row"><span>Moon Phase:</span> <span class="val">Waiting</span></p>
             </div>
         </div>
 
-        <div class="controls-area">
+        <!-- Ritual Controls Panel -->
+        <div class="controls-area panel-glass">
             <div class="bet-input" id="bet-input-container">
-                <label for="bet-amount">Bet:</label>
-                <input type="number" id="bet-amount" value="5" min="5" step="5">
+                <label for="bet-amount" class="mystical-label">Offer Crystals:</label>
+                <div class="bet-input-wrapper">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="bet-amount" value="5" min="5" step="5" class="witchy-input">
+                </div>
             </div>
             
             <div class="actions">
-                <button id="deal-btn" class="btn primary">Ante Up & Deal</button>
-                <div id="betting-actions" style="display: none;">
-                    <button id="fold-btn" class="btn danger">Fold</button>
-                    <button id="call-btn" class="btn success">Call</button>
-                    <button id="raise-btn" class="btn primary">Raise</button>
+                <button id="deal-btn" class="btn ritual-btn primary-ritual">🌟 Begin Ritual</button>
+                <div id="betting-actions" class="ritual-button-group" style="display: none;">
+                    <button id="fold-btn" class="btn ritual-btn danger-ritual">🍂 Burn Hand (Fold)</button>
+                    <button id="call-btn" class="btn ritual-btn success-ritual">🍵 Drink Cauldron (Call)</button>
+                    <button id="raise-btn" class="btn ritual-btn primary-ritual">⚡ Charge Spell (Raise)</button>
                 </div>
-                <button id="draw-btn" class="btn primary" style="display: none;">Draw Cards</button>
-                <button id="shuffle-btn" class="btn secondary">Shuffle Deck</button>
-                <button id="reset-btn" class="btn danger">Reset Game</button>
+                <button id="draw-btn" class="btn ritual-btn primary-ritual" style="display: none;">✨ Cast Transmutation (Draw)</button>
+                <button id="shuffle-btn" class="btn ritual-btn secondary-ritual">🌀 Shuffle Grimoire</button>
+                <button id="reset-btn" class="btn ritual-btn danger-ritual">💀 Extinguish Hearth (Reset)</button>
             </div>
         </div>
         
-        <div id="chat-container">
-            <div id="chat-header">Game Log & Chat</div>
+        <!-- Mystical Conversation Coven Chat Log -->
+        <div id="chat-container" class="panel-glass">
+            <div id="chat-header">
+                <span class="coven-title"><i class="fas fa-comment-dots"></i> Coven Whisperings</span>
+                <span class="coven-subtitle">Real-Time Chat & State Journal</span>
+            </div>
             <div id="chat-messages"></div>
             <div id="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Type a message...">
-                <button id="chat-send-btn" class="btn primary">Send</button>
+                <input type="text" id="chat-input" placeholder="Whisper to the coven..." autocomplete="off">
+                <button id="chat-send-btn" class="btn ritual-btn send-ritual">Send</button>
             </div>
         </div>
     </div>
+    
+    <!-- Audio synthesizer setup -->
     <script src="/static/script.js"></script>
 </body>
 </html>
