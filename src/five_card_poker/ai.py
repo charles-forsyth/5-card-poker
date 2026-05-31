@@ -11,6 +11,21 @@ class GeminiPokerAgent:
     ):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         if not self.api_key:
+            env_path = os.path.expanduser("~/.config/5cardpoker/.env")
+            if os.path.exists(env_path):
+                try:
+                    with open(env_path, "r") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#") and "=" in line:
+                                k, v = line.split("=", 1)
+                                if k.strip() == "GEMINI_API_KEY":
+                                    self.api_key = v.strip().strip("'\"")
+                                    break
+                except Exception as e:
+                    print(f"Error loading API key from ~/.config/5cardpoker/.env: {e}")
+
+        if not self.api_key:
             # In a real app we might raise error, but here let's warn or handle gracefully?
             # For now, let's assume it's provided or mocked.
             pass
