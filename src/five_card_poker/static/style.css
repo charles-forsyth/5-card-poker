@@ -216,6 +216,37 @@ body {
     border-color: #fff;
 }
 
+.autoplay-btn {
+    background: rgba(30, 10, 35, 0.6);
+    border: 1px solid var(--amethyst-glowing);
+    color: var(--amethyst-glowing);
+    box-shadow: 0 0 8px rgba(138, 43, 226, 0.3);
+}
+
+.autoplay-btn:hover {
+    background: linear-gradient(135deg, #4b0082, #1e0a23);
+    color: #fff;
+    border-color: #fff;
+    box-shadow: var(--purple-shadow);
+}
+
+.autoplay-btn.active {
+    background: linear-gradient(135deg, #8a2be2, #4b0082);
+    color: #fff;
+    border-color: #fff;
+    box-shadow: var(--purple-shadow);
+    animation: pulse-glow 2s infinite alternate;
+}
+
+@keyframes pulse-glow {
+    0% {
+        box-shadow: 0 0 8px rgba(138, 43, 226, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(138, 43, 226, 0.9);
+    }
+}
+
 /* Glassmorphism Panel system */
 .panel-glass {
     background: var(--panel-bg);

@@ -167,6 +167,7 @@ class Player:
         self.is_active = True
         self.has_acted = False
         self.agent = agent
+        self.autoplay_agent: Optional[GeminiPokerAgent] = None
 
     def to_state(self, hide_hand: bool = True) -> PlayerState:
         return PlayerState(
@@ -194,9 +195,36 @@ class Table:
         self.dealer_idx = 0
         self.evaluator = GameLogic()  # Use existing evaluation logic
         self.chat_manager = chat_manager
+        self.autoplay = False
 
     def add_player(self, player: Player):
         self.players.append(player)
+
+    def toggle_autoplay(self) -> bool:
+        self.autoplay = not getattr(self, "autoplay", False)
+        player1 = next((p for p in self.players if p.id == "player1"), None)
+        if player1:
+            if self.autoplay:
+                player1.type = PlayerType.AI
+                if not getattr(player1, "autoplay_agent", None):
+                    player1.autoplay_agent = GeminiPokerAgent(
+                        model_name="gemini-3.1-flash"
+                    )
+                player1.agent = player1.autoplay_agent
+                if self.chat_manager:
+                    self.chat_manager.add_message(
+                        "system",
+                        "Oracle Mode enabled. Gemini 3.1 Flash takes control of your Grimoire.",
+                    )
+            else:
+                player1.type = PlayerType.HUMAN
+                player1.agent = None
+                if self.chat_manager:
+                    self.chat_manager.add_message(
+                        "system",
+                        "Oracle Mode disabled. You regain control of your Grimoire.",
+                    )
+        return self.autoplay
 
     def _reset_has_acted(self):
         for p in self.players:
@@ -214,6 +242,17 @@ class Table:
     def start_game(self, ante: int = 5):
         if self.phase != "waiting":
             raise ValueError("Not in betting phase")
+
+        if getattr(self, "autoplay", False):
+            for player in self.players:
+                if player.balance < ante:
+                    player.balance = 100
+                    player.is_active = True
+                    if self.chat_manager:
+                        self.chat_manager.add_message(
+                            "system",
+                            f"🔮 The spirits replenish {player.name}'s Crystals to $100.",
+                        )
 
         if any(p.type == PlayerType.HUMAN and p.balance < ante for p in self.players):
             raise ValueError("Insufficient balance")
@@ -532,9 +571,16 @@ class Table:
         self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
 
     def to_state(self, observer_id: str) -> TableState:
+        is_spectator = getattr(self, "autoplay", False) and observer_id == "player1"
         return TableState(
             players=[
-                p.to_state(hide_hand=(p.id != observer_id and self.phase != "showdown"))
+                p.to_state(
+                    hide_hand=(
+                        p.id != observer_id
+                        and self.phase != "showdown"
+                        and not is_spectator
+                    )
+                )
                 for p in self.players
             ],
             pot=self.pot,
@@ -545,4 +591,5 @@ class Table:
             else None,
             dealer_idx=self.dealer_idx,
             deck_count=len(self.deck),
+            autoplay=getattr(self, "autoplay", False),
         )

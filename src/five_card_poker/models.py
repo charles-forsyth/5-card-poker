@@ -66,6 +66,7 @@ class TableState(BaseModel):
     active_player_id: Optional[str]
     dealer_idx: int
     deck_count: int
+    autoplay: Optional[bool] = False
 
 
 class GameState(BaseModel):

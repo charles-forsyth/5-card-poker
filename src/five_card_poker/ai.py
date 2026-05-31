@@ -32,6 +32,7 @@ class GeminiPokerAgent:
         else:
             genai.configure(api_key=self.api_key)
 
+        self.model_name = model_name
         self.model = genai.GenerativeModel(model_name)
 
     def _format_hand(self, hand: Optional[Hand]) -> str:
