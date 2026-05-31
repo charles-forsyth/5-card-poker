@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetBtn = document.getElementById('reset-btn');
     
     const themeToggle = document.getElementById('theme-toggle');
+    const autoplayToggle = document.getElementById('autoplay-toggle');
     const soundToggle = document.getElementById('sound-toggle');
     const soundIcon = document.getElementById('sound-icon');
     const volumeSlider = document.getElementById('volume-slider');
@@ -374,6 +375,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let playerId = 'player1';
     let lastCardsJson = '';
     let lastOpponentsJson = '';
+    let isAutoplayActive = false;
+    let autoplayTimer = null;
     
     // Message mapping and state trackers
     const processedMsgIds = new Set();
@@ -409,6 +412,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('theme') === 'moonlight') {
         body.classList.add('light-mode');
         themeToggle.innerHTML = '<i class="fas fa-sun"></i> Witchy Night';
+    }
+
+    // Autoplay (Oracle Mode) Toggle
+    autoplayToggle.addEventListener('click', async () => {
+        audio.init();
+        audio.resume();
+        try {
+            const response = await fetch('/autoplay/toggle', { method: 'POST' });
+            if (response.ok) {
+                const data = await response.json();
+                isAutoplayActive = data.autoplay;
+                if (isAutoplayActive) {
+                    autoplayToggle.classList.add('active');
+                    autoplayToggle.innerHTML = '<i class="fas fa-magic"></i> Auto-Playing...';
+                    audio.playChimes();
+                    runAutoplayStep();
+                } else {
+                    autoplayToggle.classList.remove('active');
+                    autoplayToggle.innerHTML = '<i class="fas fa-magic"></i> Oracle Mode (AI)';
+                    if (autoplayTimer) {
+                        clearTimeout(autoplayTimer);
+                        autoplayTimer = null;
+                    }
+                    audio.playDeal();
+                }
+                // Refresh state immediately to hide/show controls
+                await fetchState();
+            }
+        } catch (error) {
+            console.error('Error toggling autoplay:', error);
+        }
+    });
+
+    function runAutoplayStep() {
+        if (!isAutoplayActive) return;
+        
+        // Use a longer delay on waiting/showdown phase so the user can see cards/results
+        const delay = currentPhase === 'waiting' ? 4000 : 2500;
+        
+        autoplayTimer = setTimeout(async () => {
+            if (!isAutoplayActive) return;
+            try {
+                const response = await fetch('/autoplay/step', { method: 'POST' });
+                if (response.ok) {
+                    const data = await response.json();
+                    updateUI(data);
+                    await fetchChatMessages();
+                }
+            } catch (error) {
+                console.error('Error in autoplay step:', error);
+            }
+            // Queue next step
+            runAutoplayStep();
+        }, delay);
     }
 
     // Sound Slider and Mute Buttons
@@ -448,6 +505,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUI(data) {
+        // Sync autoplay state with backend
+        if (data.autoplay !== undefined) {
+            const backendAutoplay = !!data.autoplay;
+            if (backendAutoplay !== isAutoplayActive) {
+                isAutoplayActive = backendAutoplay;
+                if (isAutoplayActive) {
+                    autoplayToggle.classList.add('active');
+                    autoplayToggle.innerHTML = '<i class="fas fa-magic"></i> Auto-Playing...';
+                    runAutoplayStep();
+                } else {
+                    autoplayToggle.classList.remove('active');
+                    autoplayToggle.innerHTML = '<i class="fas fa-magic"></i> Oracle Mode (AI)';
+                    if (autoplayTimer) {
+                        clearTimeout(autoplayTimer);
+                        autoplayTimer = null;
+                    }
+                }
+            }
+        }
+
         const me = data.players.find(p => p.id === playerId);
         const opponents = data.players.filter(p => p.id !== playerId);
 
@@ -507,25 +584,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Toggle action items based on game loop phases
-        if (currentPhase === 'waiting') {
-            dealBtn.style.display = 'inline-block';
-            bettingActions.style.display = 'none';
-            drawBtn.style.display = 'none';
-            document.getElementById('bet-input-container').style.display = 'block';
-        } else if (currentPhase === 'drawing') {
+        if (isAutoplayActive) {
             dealBtn.style.display = 'none';
             bettingActions.style.display = 'none';
-            drawBtn.style.display = isMyTurn ? 'inline-block' : 'none';
+            drawBtn.style.display = 'none';
             document.getElementById('bet-input-container').style.display = 'none';
-        } else { // betting_1, betting_2
-            dealBtn.style.display = 'none';
-            bettingActions.style.display = isMyTurn ? 'inline-block' : 'none';
-            drawBtn.style.display = 'none';
-            document.getElementById('bet-input-container').style.display = 'block';
-            
-            // Re-label active call/check options in witchy style
-            const callAmount = data.current_bet - me.current_bet;
-            callBtn.textContent = callAmount > 0 ? `🍵 Drink Cauldron ($${callAmount})` : '🍵 Peer Cauldron (Check)';
+        } else {
+            if (currentPhase === 'waiting') {
+                dealBtn.style.display = 'inline-block';
+                bettingActions.style.display = 'none';
+                drawBtn.style.display = 'none';
+                document.getElementById('bet-input-container').style.display = 'block';
+            } else if (currentPhase === 'drawing') {
+                dealBtn.style.display = 'none';
+                bettingActions.style.display = 'none';
+                drawBtn.style.display = isMyTurn ? 'inline-block' : 'none';
+                document.getElementById('bet-input-container').style.display = 'none';
+            } else { // betting_1, betting_2
+                dealBtn.style.display = 'none';
+                bettingActions.style.display = isMyTurn ? 'inline-block' : 'none';
+                drawBtn.style.display = 'none';
+                document.getElementById('bet-input-container').style.display = 'block';
+                
+                // Re-label active call/check options in witchy style
+                const callAmount = data.current_bet - me.current_bet;
+                callBtn.textContent = callAmount > 0 ? `🍵 Drink Cauldron ($${callAmount})` : '🍵 Peer Cauldron (Check)';
+            }
         }
     }
 
@@ -594,6 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Toggle card selection in transmutation draw phase
             card.addEventListener('click', () => {
+                if (isAutoplayActive) return; // Disable clicking during autoplay
                 if (currentPhase === 'drawing') {
                     toggleHold(index, card);
                 }

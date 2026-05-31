@@ -47,6 +47,26 @@ async def get_state(player_id: str = "player1"):
     return table.to_state(player_id)
 
 
+@app.post("/autoplay/toggle")
+async def toggle_autoplay():
+    is_active = table.toggle_autoplay()
+    return {"autoplay": is_active}
+
+
+@app.post("/autoplay/step")
+async def autoplay_step():
+    if not getattr(table, "autoplay", False):
+        raise HTTPException(status_code=400, detail="Autoplay is not active")
+    try:
+        if table.phase == "waiting":
+            table.start_game(ante=10)
+        elif table.phase in ["betting_1", "betting_2", "drawing"]:
+            table.process_ai_turn()
+        return table.to_state("player1")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/action")
 async def take_action(request: ActionRequest):
     try:
@@ -55,7 +75,8 @@ async def take_action(request: ActionRequest):
 
         # Handle AI turns automatically
         while (
-            table.phase in ["betting_1", "betting_2", "drawing"]
+            not getattr(table, "autoplay", False)
+            and table.phase in ["betting_1", "betting_2", "drawing"]
             and table.players[table.active_player_idx].type == PlayerType.AI
         ):
             table.process_ai_turn()
@@ -73,7 +94,8 @@ async def draw_cards(request: DrawRequest):
 
         # Handle AI turns automatically
         while (
-            table.phase in ["betting_1", "betting_2", "drawing"]
+            not getattr(table, "autoplay", False)
+            and table.phase in ["betting_1", "betting_2", "drawing"]
             and table.players[table.active_player_idx].type == PlayerType.AI
         ):
             table.process_ai_turn()
@@ -92,7 +114,8 @@ async def place_bet(request: BetRequest):
         table.start_game(ante=request.bet)
         # Handle AI turns if they are first
         while (
-            table.phase in ["betting_1", "betting_2", "drawing"]
+            not getattr(table, "autoplay", False)
+            and table.phase in ["betting_1", "betting_2", "drawing"]
             and table.players[table.active_player_idx].type == PlayerType.AI
         ):
             table.process_ai_turn()
