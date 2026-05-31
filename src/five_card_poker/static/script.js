@@ -348,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const balanceElement = document.getElementById('balance');
     const potAmountElement = document.getElementById('pot-amount');
     const phaseDisplay = document.getElementById('phase-display');
+    const deckCountElement = document.getElementById('deck-count');
     const betAmountInput = document.getElementById('bet-amount');
     
     const dealBtn = document.getElementById('deal-btn');
@@ -454,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         balanceElement.innerHTML = `<span>💎 Crystals:</span> <span class="val">$${me.balance}</span>`;
         potAmountElement.textContent = `$${data.pot}`;
         phaseDisplay.innerHTML = `<span>🌒 Moon Phase:</span> <span class="val">${formatPhase(data.phase)}</span>`;
+        deckCountElement.innerHTML = `<span>🎴 Deck Count:</span> <span class="val">${data.deck_count} Cards</span>`;
         currentPhase = data.phase;
 
         // Turn announcements
