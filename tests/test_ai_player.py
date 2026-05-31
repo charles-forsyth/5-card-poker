@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 from five_card_poker.ai import GeminiPokerAgent
 from five_card_poker.models import (
     Card,
@@ -142,3 +142,16 @@ def test_decide_draw_action(agent, mock_gemini_model):
     held_indices = agent.decide_draw_action(player_state, table_state)
 
     assert held_indices == [0, 1, 4]
+
+
+def test_load_api_key_from_config_file(mock_gemini_model):
+    # Test loading from ~/.config/5cardpoker/.env when API key is not in env or arguments
+    mock_env_content = "GEMINI_API_KEY=test_config_file_key\n"
+
+    with (
+        patch("os.environ.get", return_value=None),
+        patch("os.path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data=mock_env_content)),
+    ):
+        agent = GeminiPokerAgent()
+        assert agent.api_key == "test_config_file_key"
